@@ -37,3 +37,8 @@ Description
 
     Open current.
 
+
+See also
+
+  https://github.com/syntelos/tex-journal
+
