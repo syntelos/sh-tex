@@ -1,0 +1,522 @@
+#!/bin/bash
+#
+declare -g head=$(which head)
+declare -g tail=$(which tail)
+#
+declare -g dir=~/Pictures
+declare -g many=0
+declare -g ap_fmt="% 5d % 50s\n"
+declare -g ap_rint=printf
+#
+#
+# <archive> (relative) [internal] <logical information>
+#
+declare -g root=$(basename $0)
+declare -g camera=screenshot
+declare -g yyyy=$(date +%Y)
+declare -g yyyymmdd=$(date +%Y%m%d)
+declare -g yyyy_mm_dd=$(date +%Y/%m/%d)
+declare -g mmdd=$(date +%m%d)
+#
+declare -g circa=${root}/${yyyy}/${mmdd}
+declare -g index=${circa}/index.txt
+declare -g animation=${circa}/${root}-${yyyy}-${mmdd}.mp4
+declare -g labels=${circa}/labels.txt
+#
+function usage {
+    cat<<EOF>&2
+Syntelos archive is a referential frame for the screenshot camera.
+
+    ${root}
+    ${root} store                       Copy <camera> to '${root}'.
+
+    ${root} copy <tail ?>               Index <camera> into 
+                                            ${circa}/index.txt
+
+    ${root} echo <m>                    Append <m> to labels.
+
+    ${root} today                       Output today's archive date 
+                                        location '${circa}'.
+
+    ${root} [lab|labels]                Output today's archive labels 
+                                        location '${labels}'.
+
+    ${root} [idx|index]                 Output today's archive index 
+                                        location '${index}'.
+
+    ${root} count [lab|idx]             Size of '${labels}'
+                                        or '${index}'.
+
+    ${root} head [lab|idx] <?>
+    ${root} list [lab|idx]
+    ${root} tail [lab|idx] <?>          List <camera> from '${labels}'
+                                        or '${index}'.
+
+    ${root} edit [lab|idx]              Edit '${labels}'
+                                        or '${index}'
+                                        with the 'ed' line editor.
+
+    ${root} [ani|anim|animation]        Output '${animation}'.
+
+    ${root} [enc|encode]                Encode '${index}' 
+                                        to '${animation}'.
+
+    ${root} play                        Play '${animation}'.
+
+EOF
+    exit 1
+}
+#
+function animation {
+
+    echo ${animation}
+}
+#
+function copy {
+
+    if [ -f ${index} ]
+    then
+        if 2>/dev/null ls ${circa}/${camera}-* | sort -V | ${tail} $*  > /tmp/short && sort -uV ${index} /tmp/short > /tmp/long
+        then
+            if cmp /tmp/long ${index} && cp /tmp/long ${index}
+            then
+                list
+
+                rm -f /tmp/{short,long}
+                return 0
+            fi
+        fi
+        rm -f /tmp/{short,long}
+
+    elif [ -n "${1}" ]
+    then
+        if 2>/dev/null ls ${circa}/${camera}-* | sort -V | ${tail} $*  > ${index}
+        then
+            list
+
+            return 0
+        fi
+    else
+        if 2>/dev/null ls ${circa}/${camera}-* | sort -V > ${index}
+        then
+            list
+
+            return 0
+        fi
+    fi
+    return 1
+}
+#
+function count {
+
+    case "${1}" in
+        lab|labels)
+            shift
+            if [ -f ${labels} ]
+            then
+
+                if wc -l ${labels} | awk '{print $1}'
+                then
+                    return 0;
+                fi
+            fi
+        ;;
+        idx|index)
+            shift
+            if [ -f ${index} ]
+            then
+
+                if wc -l ${index} | awk '{print $1}'
+                then
+                    return 0;
+                fi
+            fi
+        ;;
+    esac
+    return 1;
+}
+#
+function echo {
+
+    case "${1}" in
+        lab|labels)
+            shift
+            echo "${*}" >> ${labels}
+
+        ;;
+        idx|index)
+            shift
+            for src in $*
+            do
+                echo ${src} >> ${index}
+            done
+        ;;
+    esac
+
+
+}
+#
+function edit {
+
+    case "${1}" in
+        lab|labels)
+            shift
+            if [ -f ${labels} ]
+            then
+
+                if ed ${labels}
+                then
+                    return 0;
+                fi
+            fi
+        ;;
+        idx|index)
+            shift
+            if [ -f ${index} ]
+            then
+                
+                if ed ${index}
+                then
+                    return 0;
+                fi
+            fi
+            ;;
+    esac
+    return 1;
+}
+#
+function encode {
+
+    if [ -f ${index} ]
+    then
+        if [ -d /tmp/encode ]
+        then
+            rm -f /tmp/encode/* 
+        else
+            mkdir /tmp/encode
+        fi
+
+        if cd /tmp/encode && cp -p $(cat ${dir}/${index} | sed "s%^%${dir}/%") .
+        then
+            if ffmpeg -y -framerate 1 -pattern_type glob -i "${camera}-*.png" ${dir}/${animation}
+            then
+                return 0;
+            else
+                return 1
+            fi
+        fi
+    fi
+    return 1;
+}
+#
+function head {
+
+    case "${1}" in
+        lab|labels)
+            shift
+            num=1
+            for fc in $(2>/dev/null cat ${labels} | ${head} $* )
+            do
+                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
+                num=$(( $num + 1 ))
+            done
+
+        ;;
+        idx|index)
+            shift
+            num=1
+            for fc in $(2>/dev/null cat ${index} | ${head} $* )
+            do
+                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
+                num=$(( $num + 1 ))
+            done
+        ;;
+    esac
+
+}
+#
+function labels {
+
+    echo ${labels}
+}
+#
+#
+function index {
+
+    echo ${index}
+}
+#
+function list {
+
+    case "${1}" in
+        lab|labels)
+            shift
+            num=1
+            for fc in $(2>/dev/null cat ${labels})
+            do
+                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
+                num=$(( $num + 1 ))
+            done
+
+        ;;
+        idx|index)
+            shift
+            num=1
+            for fc in $(2>/dev/null cat ${index})
+            do
+                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
+                num=$(( $num + 1 ))
+            done
+        ;;
+    esac
+
+
+}
+#
+function play {
+
+    if [ -f ${animation} ] && ffplay ${animation}
+    then
+        return 0
+    else
+        return 1
+    fi
+}
+#
+#
+function store {
+    set -x
+    #
+    # obscuring the source file name to conserve unit item integrity
+    #
+    for store_src in $(2>/dev/null ls Screenshot* | sed 's/ /%/g')
+    do
+        if store_tgtf=$(echo ${store_src} | tr '[A-Z]' '[a-z]' | sed 's/%from%/%/; s/-//g; s/%/-/g;') &&[ -n "${store_tgtf}" ]
+        then
+
+            if store_src_yyyymmdd=$(echo ${store_tgtf} | sed "s/${camera}-//; s/-.*//") &&[ -n "${store_src_yyyymmdd}" ]
+            then
+                
+                if store_src_dd=$(echo ${yyyymmdd} | sed 's/^[0-9][0-9][0-9][0-9][0-9][0-9]//') &&[ -n "${store_src_dd}" ]
+                then
+                    if store_src_mm=$(echo ${yyyymmdd} | sed 's/^[0-9][0-9][0-9][0-9]//; s/[0-9][0-9]$//') &&[ -n "${store_src_mm}" ]
+                    then
+                        if store_src_yyyy=$(echo ${yyyymmdd} | sed 's/[0-9][0-9][0-9][0-9]$//') &&[ -n "${store_src_yyyy}" ]
+                        then
+
+                            
+                            store_tgtd=${root}/${store_src_yyyy}/${store_src_mm}${store_src_dd}
+                            if [ ! -d ${store_tgtd} ]
+                            then
+                                mkdir -p ${store_tgtd}
+                            fi
+
+                            store_tgt=${store_tgtd}/${store_tgtf}
+                            #
+                            # obscuring the source file name to prevent shell space bugs
+                            #
+                            if mv "$(echo ${store_src} | sed 's/%/ /g')" "${store_tgt}"
+                            then
+                                many=$(( $many + 1 ))
+                                echo ${store_tgt}
+                            else
+                                echo "error in mv '$(echo ${store_src} | sed 's/%/ /g')' '${store_tgt}'"
+                                exit 1
+                            fi
+                        else
+                            exit 1
+                        fi
+                    else
+                        exit 1
+                    fi
+                else
+                    exit 1
+                fi
+            else
+                exit 1
+            fi
+        else
+            exit 1
+        fi
+    done
+
+    #
+    if [ 0 -lt $many ]
+    then
+        exit 0
+    else
+        exit 1
+    fi
+}
+#
+function tail {
+
+    case "${1}" in
+        lab|labels)
+            shift
+            num=1
+            for fc in $(2>/dev/null cat ${labels} | ${tail} $* )
+            do
+                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
+                num=$(( $num + 1 ))
+            done
+
+        ;;
+        idx|index)
+            shift
+            num=1
+            for fc in $(2>/dev/null cat ${index} | ${tail} $* )
+            do
+                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
+                num=$(( $num + 1 ))
+            done
+        ;;
+    esac
+}
+#
+function today {
+
+    echo ${circa}
+}
+#
+if cd ${dir}
+then
+
+    if [ -n "${1}" ]
+    then
+        case "${1}" in
+            ani|anim|animation)
+                shift
+                if animation $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            copy)
+                shift
+                if copy $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            count)
+                shift
+                if count $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            echo)
+                shift
+                if echo $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            edit)
+                shift
+                if edit $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            enc|encode)
+                shift
+                if encode $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            head)
+                shift
+                if head $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            idx|index)
+                shift
+                if index $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            list)
+                shift
+                if list $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            play)
+                shift
+                if play $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            store)
+                shift
+                if store $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            tail)
+                shift
+                if tail $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            today)
+                shift
+                if today $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            *)
+                usage
+                ;;
+        esac
+    else
+        if store
+        then
+            exit 0
+        else
+            exit 1
+        fi
+    fi
+else
+    cat<<EOF>&2
+$0 error in 'cd ${dir}'.
+EOF
+    exit 1
+fi
