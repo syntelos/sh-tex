@@ -33,6 +33,18 @@ Description
 
     Open current.
 
+Archive
+
+  The 'archive' tool is an independent conglomeration of the toolbox
+  concept into a related artefact.  In this case, the toolbox produces
+  /home/usr/Pictures/archive from Screenshot files in
+  /home/usr/Pictures, and encodes daily MPEG-4 summations from an
+  index.  It also maintains a labels list.
+
+  The 'archive' tool enables workspace recording and sharing.  This is
+  useful for work effort visualization, work technique illustration,
+  work flow presentation, and other information - experiential
+  recording from the workstation.
 
 See also
 

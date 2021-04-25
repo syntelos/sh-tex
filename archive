@@ -1,5 +1,14 @@
 #!/bin/bash
 #
+# Syntelos Archive
+# Copyright (C) 2021, John Pritchard, @syntelos
+# CC-BY-NC
+# This work is licensed under the Creative Commons
+# Attribution-NonCommercial 4.0 International License. To view a copy
+# of this license, visit
+# http://creativecommons.org/licenses/by-nc/4.0/ or send a letter to
+# Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+#
 declare -g head=$(which head)
 declare -g tail=$(which tail)
 #
@@ -20,37 +29,38 @@ declare -g mmdd=$(date +%m%d)
 #
 declare -g circa=${root}/${yyyy}/${mmdd}
 declare -g index=${circa}/index.txt
-declare -g animation=${circa}/${root}-${yyyy}-${mmdd}.mp4
+declare -g summation=${circa}/${root}-${yyyy}-${mmdd}
+declare -g animation=${summation}.mp4
 declare -g labels=${circa}/labels.txt
 #
 function usage {
     cat<<EOF>&2
 Syntelos archive is a referential frame for the screenshot camera.
 
-    ${root}
-    ${root} store                       Copy <camera> to '${root}'.
+    ${root}                             Copy <camera> to <store>.
 
-    ${root} copy <tail ?>               Index <camera> into 
-                                            ${circa}/index.txt
+    ${root} copy                        Copy <store> list into today's archive <index>
+                                        '${index}'.
 
-    ${root} echo <m>                    Append <m> to labels.
+    ${root} echo <m>                    Append <m> to <labels>.
 
-    ${root} today                       Output today's archive date 
+    ${root} [tod|today|store]           Output today's archive <store>
                                         location '${circa}'.
 
-    ${root} [lab|labels]                Output today's archive labels 
+    ${root} [lab|labels]                Output today's archive <labels> 
                                         location '${labels}'.
 
-    ${root} [idx|index]                 Output today's archive index 
+    ${root} [idx|index]                 Output today's archive <index>
                                         location '${index}'.
 
-    ${root} count [lab|idx]             Size of '${labels}'
-                                        or '${index}'.
+    ${root} count [cam|sto|lab|idx]     Size of <camera>, <store>, 
+                                        <labels>, or <index>.
 
-    ${root} head [lab|idx] <?>
-    ${root} list [lab|idx]
-    ${root} tail [lab|idx] <?>          List <camera> from '${labels}'
-                                        or '${index}'.
+    ${root} head [cam|sto|lab|idx] <?>
+    ${root} list [cam|sto|lab|idx]
+    ${root} tail [cam|sto|lab|idx] <?>  List '${labels}'
+                                        or '${index}'
+                                        using <head|tail> arguments.
 
     ${root} edit [lab|idx]              Edit '${labels}'
                                         or '${index}'
@@ -74,42 +84,27 @@ function animation {
 #
 function copy {
 
-    if [ -f ${index} ]
+    if list store > ${index}
     then
-        if 2>/dev/null ls ${circa}/${camera}-* | sort -V | ${tail} $*  > /tmp/short && sort -uV ${index} /tmp/short > /tmp/long
-        then
-            if cmp /tmp/long ${index} && cp /tmp/long ${index}
-            then
-                list
+        list idx
 
-                rm -f /tmp/{short,long}
-                return 0
-            fi
-        fi
-        rm -f /tmp/{short,long}
-
-    elif [ -n "${1}" ]
-    then
-        if 2>/dev/null ls ${circa}/${camera}-* | sort -V | ${tail} $*  > ${index}
-        then
-            list
-
-            return 0
-        fi
+        return 0
     else
-        if 2>/dev/null ls ${circa}/${camera}-* | sort -V > ${index}
-        then
-            list
-
-            return 0
-        fi
+        return 1
     fi
-    return 1
 }
 #
 function count {
 
     case "${1}" in
+        cam|camera)
+            shift
+
+            for fc in $(2>/dev/null ls Screenshot* | sed 's/ /%/g' | wc -l | awk '{print $1}' )
+            do 
+                echo ${fc}
+            done
+            ;;
         lab|labels)
             shift
             if [ -f ${labels} ]
@@ -132,11 +127,22 @@ function count {
                 fi
             fi
         ;;
+        tod|today|sto|store)
+            shift
+            if [ -d ${circa} ]
+            then
+
+                if 2>/dev/null ls ${circa}/${camera}-* | wc -l 
+                then
+                    return 0;
+                fi
+            fi
+        ;;
     esac
     return 1;
 }
 #
-function echo {
+function copyto {
 
     case "${1}" in
         lab|labels)
@@ -212,27 +218,36 @@ function encode {
 function head {
 
     case "${1}" in
+        cam|camera)
+            shift
+
+            for fc in $(2>/dev/null ls Screenshot* | sed 's/ /%/g' | ${head} $* )
+            do 
+                echo ${fc}
+            done
+            ;;
         lab|labels)
             shift
-            num=1
-            for fc in $(2>/dev/null cat ${labels} | ${head} $* )
-            do
-                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
-                num=$(( $num + 1 ))
-            done
+            2>/dev/null cat -n ${labels} | ${head} $*
 
-        ;;
+            ;;
         idx|index)
             shift
-            num=1
-            for fc in $(2>/dev/null cat ${index} | ${head} $* )
-            do
-                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
-                num=$(( $num + 1 ))
-            done
+            2>/dev/null cat -n ${index} | ${head} $*
+
+        ;;
+        tod|today|sto|store)
+            shift
+            if [ -d ${circa} ]
+            then
+
+                for fc in $(2>/dev/null ls ${circa}/${camera}-* | ${head} $* )
+                do
+                    echo ${fc}
+                done
+            fi
         ;;
     esac
-
 }
 #
 function labels {
@@ -249,27 +264,40 @@ function index {
 function list {
 
     case "${1}" in
+        cam|camera)
+            shift
+
+            for fc in $(2>/dev/null ls Screenshot* | sed 's/ /%/g')
+            do 
+                echo ${fc}
+            done
+        ;;
         lab|labels)
             shift
-            num=1
             for fc in $(2>/dev/null cat ${labels})
             do
-                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
-                num=$(( $num + 1 ))
+                echo ${fc}
             done
-
         ;;
         idx|index)
             shift
-            num=1
             for fc in $(2>/dev/null cat ${index})
             do
-                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
-                num=$(( $num + 1 ))
+                echo ${fc}
             done
         ;;
-    esac
+        tod|today|sto|store)
+            shift
+            if [ -d ${circa} ]
+            then
 
+                for fc in $(2>/dev/null ls ${circa}/${camera}-* )
+                do
+                    echo ${fc}
+                done
+            fi
+        ;;
+    esac
 
 }
 #
@@ -285,11 +313,10 @@ function play {
 #
 #
 function store {
-    set -x
     #
     # obscuring the source file name to conserve unit item integrity
     #
-    for store_src in $(2>/dev/null ls Screenshot* | sed 's/ /%/g')
+    for store_src in $(list camera)
     do
         if store_tgtf=$(echo ${store_src} | tr '[A-Z]' '[a-z]' | sed 's/%from%/%/; s/-//g; s/%/-/g;') &&[ -n "${store_tgtf}" ]
         then
@@ -352,26 +379,37 @@ function store {
 function tail {
 
     case "${1}" in
+        cam|camera)
+            shift
+
+            for fc in $(2>/dev/null ls Screenshot* | sed 's/ /%/g' | ${tail} $* )
+            do 
+                echo ${fc}
+            done
+            ;;
         lab|labels)
             shift
-            num=1
-            for fc in $(2>/dev/null cat ${labels} | ${tail} $* )
-            do
-                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
-                num=$(( $num + 1 ))
-            done
+            2>/dev/null cat -n ${labels} | ${tail} $*
 
-        ;;
+            ;;
         idx|index)
             shift
-            num=1
-            for fc in $(2>/dev/null cat ${index} | ${tail} $* )
-            do
-                ${ap_rint} "${ap_fmt}"  ${num} ${fc}
-                num=$(( $num + 1 ))
-            done
+            2>/dev/null cat -n ${index} | ${tail} $*
+
+        ;;
+        tod|today|sto|store)
+            shift
+            if [ -d ${circa} ]
+            then
+
+                for fc in $(2>/dev/null ls ${circa}/${camera}-* | ${tail} $* )
+                do
+                    echo ${fc}
+                done
+            fi
         ;;
     esac
+
 }
 #
 function today {
@@ -414,7 +452,7 @@ then
                 ;;
             echo)
                 shift
-                if echo $*
+                if copyto $*
                 then
                     exit 0
                 else
@@ -457,6 +495,15 @@ then
                     exit 1
                 fi
                 ;;
+            install)
+                shift
+                if [ ${0} -nt ~/bin/$(basename $0) ]&& cp -p $0 ~/bin
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
             list)
                 shift
                 if list $*
@@ -475,9 +522,9 @@ then
                     exit 1
                 fi
                 ;;
-            store)
+            tod|today|store)
                 shift
-                if store $*
+                if today $*
                 then
                     exit 0
                 else
@@ -487,15 +534,6 @@ then
             tail)
                 shift
                 if tail $*
-                then
-                    exit 0
-                else
-                    exit 1
-                fi
-                ;;
-            today)
-                shift
-                if today $*
                 then
                     exit 0
                 else
