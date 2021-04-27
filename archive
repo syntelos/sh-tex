@@ -13,9 +13,6 @@ declare -g head=$(which head)
 declare -g tail=$(which tail)
 #
 declare -g dir=~/Pictures
-declare -g many=0
-declare -g ap_fmt="% 5d % 50s\n"
-declare -g ap_rint=printf
 #
 #
 # <archive> (relative) [internal] <logical information>
@@ -100,10 +97,7 @@ function count {
         cam|camera)
             shift
 
-            for fc in $(2>/dev/null ls Screenshot* | sed 's/ /%/g' | wc -l | awk '{print $1}' )
-            do 
-                echo ${fc}
-            done
+            2>/dev/null ls Screenshot* | sed 's/ /%/g' | wc -l | awk '{print $1}'
             ;;
         lab|labels)
             shift
@@ -114,6 +108,8 @@ function count {
                 then
                     return 0;
                 fi
+            else
+                echo 0
             fi
         ;;
         idx|index)
@@ -125,6 +121,8 @@ function count {
                 then
                     return 0;
                 fi
+            else
+                echo 0
             fi
         ;;
         tod|today|sto|store)
@@ -136,6 +134,8 @@ function count {
                 then
                     return 0;
                 fi
+            else
+                echo 0
             fi
         ;;
     esac
@@ -313,6 +313,7 @@ function play {
 #
 #
 function store {
+    declare many=0
     #
     # obscuring the source file name to conserve unit item integrity
     #
@@ -498,6 +499,15 @@ then
             install)
                 shift
                 if [ ${0} -nt ~/bin/$(basename $0) ]&& cp -p $0 ~/bin
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            lab|labels)
+                shift
+                if labels $*
                 then
                     exit 0
                 else
