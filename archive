@@ -41,6 +41,8 @@ Syntelos archive is a referential frame for the screenshot camera.
 
     ${root} echo <m>                    Append <m> to <labels>.
 
+    ${root} home [head|tail|list]       Prefix output with absolute location.
+
     ${root} [tod|today|store]           Output today's archive <store>
                                         location '${circa}'.
 
@@ -247,6 +249,67 @@ function head {
                 done
             fi
         ;;
+    esac
+}
+#
+function home {
+
+    case "${1}" in
+        head)
+            shift
+            if head $* | sed "s%^%${dir}/%"
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        idx|index)
+            shift
+            if index $* | sed "s%^%${dir}/%"
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        lab|labels)
+            shift
+            if labels $* | sed "s%^%${dir}/%"
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        list)
+            shift
+            if list $* | sed "s%^%${dir}/%"
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        tod|today|sto|store)
+            shift
+            if today $* | sed "s%^%${dir}/%"
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        tail)
+            shift
+            if tail $* | sed "s%^%${dir}/%"
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+
     esac
 }
 #
@@ -487,6 +550,15 @@ then
                     exit 1
                 fi
                 ;;
+            home)
+                shift
+                if home $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
             idx|index)
                 shift
                 if index $*
@@ -532,7 +604,7 @@ then
                     exit 1
                 fi
                 ;;
-            tod|today|store)
+            tod|today|sto|store)
                 shift
                 if today $*
                 then
