@@ -1,0 +1,461 @@
+#!/bin/bash
+#
+# Syntelos Series
+# Copyright (C) 2021, John Pritchard, @syntelos
+# CC-BY-NC
+# This work is licensed under the Creative Commons
+# Attribution-NonCommercial 4.0 International License. To view a copy
+# of this license, visit
+# http://creativecommons.org/licenses/by-nc/4.0/ or send a letter to
+# Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+#
+
+declare -g series_root=~/tex
+
+function usage {
+    cat<<EOF>&2
+Syntelos series is a journal toolbox.
+
+    series <s> circa [?]          Current working directory.  Alt path prefix for 
+                                  <current>, <list>, and <next>.
+
+    series <s> compile [x]        Produce La/TeX output, default DVI.  Opt 'pdf', 'ps',
+                                  or 'png'.  
+
+    series <s> current [x]        Relative path of current file.  Opt <fext> def 'tex'.
+
+    series <s> dir [?]            Series directory.  Alt absolute path for <circa>,
+                                   <current>, <list>, or <next>.
+
+    series <s> list               List files in set of current.
+
+    series <s> name               Series directory base name.
+
+    series <s> next [x]           Relative path of future file.  Opt <fext> def 'tex'.
+
+    series <s> print [x]          Produce La/TeX output, default DVI.  Opt 'pdf',
+                                  'ps', or 'png'.
+
+    series <s> prefix             Series file prefix.
+
+
+Description
+
+    Manage a TeX document series from any working directory.
+
+Configuration
+
+    A series might be found in directory
+
+        ${series_root}/tex-journal
+
+    which directory needs to be initialized (as a git repo) manually.
+
+Structure
+
+    Journal entry docs are found in "circa",
+
+        ${series_root}/tex-journal/2021 ,
+
+    during year 2021.  For example
+
+        ${series_root}/tex-journal/2021/journal-20210101-0.tex ,
+
+    and its output.
+
+EOF
+    exit 1
+}
+
+declare -g series_dir
+declare -g series_name
+declare -g series_prefix
+
+function series_init {
+    if [ -n "${1}" ]
+    then
+
+        if [ -d "${series_root}/${1}" ]
+        then
+            series_dir=${series_root}/${1}
+            
+            series_name=$(basename "${series_dir}")
+            #
+            # given "a/a-b", trunc "a-" from "a-b"
+            #
+            rep=$(basename $(dirname "${series_dir}"))
+
+            if [ -n "$(echo ${series_name} | egrep -e ^${rep}- )" ]
+            then
+                series_prefix=$(echo ${series_name} | sed "s%^${rep}-%%")
+            else
+                series_prefix="${series_name}"
+            fi
+            return 0
+
+        elif [ -d "${series_root}/tex-${1}" ]
+        then
+            series_dir=${series_root}/tex-${1}
+            series_name=$(basename "${series_dir}")
+            series_prefix="${1}"
+        else
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+
+declare -g series_circa=$(date +%Y)
+declare -g series_today=$(date +%Y%m%d)
+
+function series_base_current {
+    p="${series_prefix}-"
+    d="${series_today}-"
+    x="0"
+
+    if tgt=$(2>/dev/null ls ${series_dir}/${series_circa}/${p}* | sort -V | tail -n 1 ) && [ -n "${tgt}" ]
+    then
+
+        if dx=$(echo "${tgt}" | sed "s%.*${p}%%;" | sed 's%\.[a-z][a-z][a-z]$%%;') &&[ -n "${dx}" ]
+        then
+
+            echo ${p}${dx}
+            return 0
+        else
+            return 1
+        fi
+    else
+        echo ${p}${d}${x}
+        return 0
+    fi
+}
+
+function series_file_current {
+    if base=$(series_base_current) && [ -n "${base}" ]
+    then
+        if [ -n "${1}" ]
+        then
+            echo ${base}.${1}
+        else
+            echo ${base}.tex
+        fi
+        return 0
+    else
+        return 1
+    fi
+}
+
+function series_base_next {
+    p="${series_prefix}-${series_today}-"
+    x="0"
+
+    if tgt=$(2>/dev/null ls ${series_dir}/${series_circa}/${p}* | sort -V | tail -n 1 ) && [ -n "${tgt}" ]
+    then
+
+        if x=$(echo "${tgt}" | sed "s%.*${p}%%;" | sed 's%\.[a-z][a-z][a-z]$%%; s%[A-Za-z_]*-%%;') &&[ -n "${x}" ]
+        then
+            if x=$(( ${x} + 1 )) && [ 0 -le ${x} ]
+            then
+
+                echo ${p}${x}
+                return 0
+            else
+                return 1
+            fi
+        else
+            return 1
+        fi
+    else
+        echo ${p}${x}
+        return 0
+    fi
+}
+
+function series_file_next {
+    if base=$(series_base_next) && [ -n "${base}" ]
+    then
+        if [ -n "${1}" ]
+        then
+            echo ${base}.${1}
+        else
+            echo ${base}.tex
+        fi
+        return 0
+    else
+        return 1
+    fi
+}
+
+function series_process_create {
+    if file=$(series_file_next) && [ -n "${file}" ]
+    then
+        if [ ! -d ${series_dir}/${series_circa} ]
+        then
+            mkdir -p ${series_dir}/${series_circa}
+        fi
+
+        series_template=${series_dir}/${series_circa}/template.tex
+        
+        if [ -n "${TEX_SERIES_TEMPLATE:-series_template}" ]
+        then
+            cp ${TEX_SERIES_TEMPLATE:-series_template} ${series_dir}/${series_circa}/${file}
+
+        elif [ -f ${series_template} ]
+        then
+            cp ${series_template} ${series_dir}/${series_circa}/${file}
+        else
+            cat<<EOF>${series_dir}/${series_circa}/${file}
+\input preamble
+
+\bye
+EOF
+        fi
+
+        git add ${series_dir}/${series_circa}/${file}
+
+        series_editor=emacs
+
+        if [ -n "${TEX_SERIES_EDITOR:-series_editor}" ]
+        then
+            "${TEX_SERIES_EDITOR:-series_editor}" ${series_dir}/${series_circa}/${file} &
+        else
+            ${series_editor} ${series_dir}/${series_circa}/${file} &
+        fi
+
+        return 0
+    else
+        return 1
+    fi
+}
+
+function series_process_compile {
+    if tex_file=$(series_file_current) && [ -n "${tex_file}" ]
+    then
+        src=${series_dir}/${series_circa}/${tex_file}
+
+        if [ -n "$(egrep -e '^\\documentclass' ${src} )" ]
+        then
+            if [ -n "${1}" ]&&[ 'pdf' = "${1}" ]
+            then
+                tgt=$(echo ${src} | sed 's/\.tex$/.pdf/')
+                compiler=pdflatex
+            else
+                tgt=$(echo ${src} | sed 's/\.tex$/.dvi/')
+                compiler=latex
+            fi
+        else
+            if [ -n "${1}" ]&&[ 'pdf' = "${1}" ]
+            then
+                tgt=$(echo ${src} | sed 's/\.tex$/.pdf/')
+                compiler=pdftex
+            else
+                tgt=$(echo ${src} | sed 's/\.tex$/.dvi/')
+                compiler=tex
+            fi
+        fi
+
+        if ${compiler} ${src}
+        then
+            git add ${tgt}
+
+            if [ -n "${1}" ]
+            then
+                case "${1}" in
+
+                    png)
+                        tgt2=$(echo ${tgt} | sed 's/\.dvi$/.png/')
+
+                        if dvipng -p '=1' -T bbox -o ${tgt2} ${tgt}
+                        then
+                            git add ${tgt2}
+                        fi
+                        ;;
+                    ps)
+                        tgt2=$(echo ${tgt} | sed 's/\.dvi$/.ps/')
+
+                        if dvips ${tgt}
+                        then
+                            git add ${tgt2}
+                        fi
+                        ;;
+                esac
+            fi
+            return 0
+        else
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+
+function series_process_list {
+    if base=$(series_base_current $* )
+    then
+        2>/dev/null ls ${series_dir}/${series_circa}/${base}.* | sed "s%${series_dir}/${series_circa}/%%;"
+    else
+        return 1
+    fi
+}
+
+if series_init $* && cd ${series_dir}/${series_circa}
+then
+    shift
+    if [ -n "${1}" ]
+    then
+        case "${1}" in
+
+            circa)
+                shift
+                if [ -n "${1}" ]
+                then
+                    case "${1}" in
+                        current)
+                            shift
+                            if series_file_current $* | sed "s%^%${series_circa}/%;"
+                            then
+                                exit 0
+                            else
+                                exit 1
+                            fi
+                        ;;
+                        list)
+                            shift
+                            if series_process_list $* | sed "s%^%${series_circa}/%;"
+                            then
+                                exit 0
+                            else
+                                exit 1
+                            fi
+                        ;;
+                        next)
+                            shift
+                            if series_file_next $* | sed "s%^%${series_circa}/%;"
+                            then
+                                exit 0
+                            else
+                                exit 1
+                            fi
+                        ;;
+                    esac
+                else
+                    echo ${series_circa}
+                    exit 0
+                fi
+                ;;
+            compile|print)
+                shift
+                if series_process_compile $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            create)
+                shift
+                if series_process_create $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            current)
+                shift
+                if file=$(series_file_current $* ) && [ -n "${file}" ]
+                then
+                    echo ${file}
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            dir)
+                shift
+                if [ -n "${1}" ]
+                then
+                    case "${1}" in
+                        circa)
+                            shift
+                            echo ${series_dir}/${series_circa}
+                            exit 0
+                            ;;
+                        current)
+                            shift
+                            if file=$(series_file_current $* ) && [ -n "${file}" ]
+                            then
+                                echo ${series_dir}/${series_circa}/${file}
+                                exit 0
+                            else
+                                exit 1
+                            fi
+                            ;;
+                        list)
+                            shift
+                            if series_process_list $* | sed "s%^%${series_dir}/${series_circa}/%;"
+                            then
+                                exit 0
+                            else
+                                exit 1
+                            fi
+                            ;;
+                        next)
+                            shift
+                            if file=$(series_file_next $* ) && [ -n "${file}" ]
+                            then
+                                echo ${series_dir}/${series_circa}/${file}
+                                exit 0
+                            else
+                                exit 1
+                            fi
+                            ;;
+                        *)
+                            usage
+                            ;;
+                    esac
+                else
+                    echo ${series_dir}
+                    exit 0
+                fi
+                ;;
+            list)
+                shift
+                if series_process_list $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            name)
+                shift
+                echo ${series_name}
+                exit 0
+                ;;
+            next)
+                shift
+                if file=$(series_file_next $* ) && [ -n "${file}" ]
+                then
+                    echo ${file}
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            prefix)
+                shift
+                echo ${series_prefix}
+                exit 0
+                ;;
+            *)
+                usage
+                ;;
+        esac
+    else
+        usage
+    fi
+else
+    usage
+fi
