@@ -388,11 +388,11 @@ function store {
             if store_src_yyyymmdd=$(echo ${store_tgtf} | sed "s/${camera}-//; s/-.*//") &&[ -n "${store_src_yyyymmdd}" ]
             then
                 
-                if store_src_dd=$(echo ${yyyymmdd} | sed 's/^[0-9][0-9][0-9][0-9][0-9][0-9]//') &&[ -n "${store_src_dd}" ]
+                if store_src_dd=$(echo ${store_src_yyyymmdd} | sed 's/^[0-9][0-9][0-9][0-9][0-9][0-9]//') &&[ -n "${store_src_dd}" ]
                 then
-                    if store_src_mm=$(echo ${yyyymmdd} | sed 's/^[0-9][0-9][0-9][0-9]//; s/[0-9][0-9]$//') &&[ -n "${store_src_mm}" ]
+                    if store_src_mm=$(echo ${store_src_yyyymmdd} | sed 's/^[0-9][0-9][0-9][0-9]//; s/[0-9][0-9]$//') &&[ -n "${store_src_mm}" ]
                     then
-                        if store_src_yyyy=$(echo ${yyyymmdd} | sed 's/[0-9][0-9][0-9][0-9]$//') &&[ -n "${store_src_yyyy}" ]
+                        if store_src_yyyy=$(echo ${store_src_yyyymmdd} | sed 's/[0-9][0-9][0-9][0-9]$//') &&[ -n "${store_src_yyyy}" ]
                         then
 
                             
