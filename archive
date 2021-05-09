@@ -230,12 +230,12 @@ function head {
             ;;
         lab|labels)
             shift
-            2>/dev/null cat -n ${labels} | ${head} $*
+            2>/dev/null cat ${labels} | ${head} $*
 
             ;;
         idx|index)
             shift
-            2>/dev/null cat -n ${index} | ${head} $*
+            2>/dev/null cat ${index} | ${head} $*
 
         ;;
         tod|today|sto|store)
@@ -453,12 +453,12 @@ function tail {
             ;;
         lab|labels)
             shift
-            2>/dev/null cat -n ${labels} | ${tail} $*
+            2>/dev/null cat ${labels} | ${tail} $*
 
             ;;
         idx|index)
             shift
-            2>/dev/null cat -n ${index} | ${tail} $*
+            2>/dev/null cat ${index} | ${tail} $*
 
         ;;
         tod|today|sto|store)
