@@ -232,11 +232,18 @@ EOF
 function series_process_compile {
     if tex_file=$(series_file_current) && [ -n "${tex_file}" ]
     then
+        dvi_file=$(echo ${tex_file} | sed 's/\.tex$/.dvi/')
+
         src=${series_dir}/${series_circa}/${tex_file}
+        tgt=${series_dir}/${series_circa}/${dvi_file}
 
         if [ -n "$(egrep -e '^\\documentclass' ${src} )" ]
         then
-            if [ -n "${1}" ]&&[ 'pdf' = "${1}" ]
+            if [ -f "${tgt}" ]
+            then
+                compiler=latex
+
+            elif [ -n "${1}" ]&&[ 'pdf' = "${1}" ]
             then
                 tgt=$(echo ${src} | sed 's/\.tex$/.pdf/')
                 compiler=pdflatex
@@ -245,7 +252,11 @@ function series_process_compile {
                 compiler=latex
             fi
         else
-            if [ -n "${1}" ]&&[ 'pdf' = "${1}" ]
+            if [ -f "${tgt}" ]
+            then
+                compiler=tex
+
+            elif [ -n "${1}" ]&&[ 'pdf' = "${1}" ]
             then
                 tgt=$(echo ${src} | sed 's/\.tex$/.pdf/')
                 compiler=pdftex
@@ -263,6 +274,14 @@ function series_process_compile {
             then
                 case "${1}" in
 
+                    pdf)
+                        tgt2=$(echo ${tgt} | sed 's/\.dvi$/.pdf/')
+
+                        if dvipdf ${tgt} -o ${tgt2}
+                        then
+                            git add ${tgt2}
+                        fi
+                        ;;
                     png)
                         tgt2=$(echo ${tgt} | sed 's/\.dvi$/.png/')
 
@@ -274,7 +293,7 @@ function series_process_compile {
                     ps)
                         tgt2=$(echo ${tgt} | sed 's/\.dvi$/.ps/')
 
-                        if dvips ${tgt}
+                        if dvips -o ${tgt2} ${tgt}
                         then
                             git add ${tgt2}
                         fi
