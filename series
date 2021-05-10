@@ -197,9 +197,9 @@ function series_process_create {
 
         series_template=${series_dir}/${series_circa}/template.tex
         
-        if [ -n "${TEX_SERIES_TEMPLATE:-series_template}" ]
+        if [ -n "${TEX_SERIES_TEMPLATE}" ]
         then
-            cp ${TEX_SERIES_TEMPLATE:-series_template} ${series_dir}/${series_circa}/${file}
+            cp "${TEX_SERIES_TEMPLATE}" ${series_dir}/${series_circa}/${file}
 
         elif [ -f ${series_template} ]
         then
@@ -216,9 +216,9 @@ EOF
 
         series_editor=emacs
 
-        if [ -n "${TEX_SERIES_EDITOR:-series_editor}" ]
+        if [ -n "${TEX_SERIES_EDITOR}" ]
         then
-            "${TEX_SERIES_EDITOR:-series_editor}" ${series_dir}/${series_circa}/${file} &
+            "${TEX_SERIES_EDITOR}" ${series_dir}/${series_circa}/${file} &
         else
             ${series_editor} ${series_dir}/${series_circa}/${file} &
         fi
