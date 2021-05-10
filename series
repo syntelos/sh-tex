@@ -277,7 +277,7 @@ function series_process_compile {
                     pdf)
                         tgt2=$(echo ${tgt} | sed 's/\.dvi$/.pdf/')
 
-                        if dvipdf ${tgt} -o ${tgt2}
+                        if dvipdf ${tgt} ${tgt2}
                         then
                             git add ${tgt2}
                         fi
