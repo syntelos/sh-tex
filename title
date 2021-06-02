@@ -1,0 +1,87 @@
+#!/bin/bash
+
+declare -g title_prefix
+
+function title_usage {
+
+    cat<<EOF>&2
+
+Synopsis
+
+  title <prefix> today
+
+Description
+
+  Print title with a current working name.
+
+
+Synopsis
+
+  title <prefix> exist
+
+Description
+
+  Print title with a existing working name.
+
+
+EOF
+}
+
+function title_yyyymmdd {
+
+    if date +%Y%m%d
+    then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function title_today {
+
+    if echo ${title_prefix}-$(title_yyyymmdd)
+    then
+        return 0
+    else
+        return 1
+    fi
+}
+
+function title_exist {
+
+    if 2>/dev/null ls -d ${title_prefix}-* | sort -V | tail -n 1
+    then
+        return 0
+    else
+        return 1
+    fi
+}
+
+title_prefix=$(echo "${1}" | sed 's%^-%%g; s%-$%%g;')
+shift
+
+case "${1}" in
+
+    today)
+        shift
+        if title_today $*
+        then
+            exit 1
+        else
+            exit 0
+        fi
+        ;;
+
+    exist)
+        shift
+        if title_exist $*
+        then
+            exit 1
+        else
+            exit 0
+        fi
+        ;;
+    *)
+        title_usage
+        ;;
+esac
