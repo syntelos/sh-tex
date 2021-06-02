@@ -67,7 +67,7 @@ function sequence_file {
 #
 #
 #
-function sequence {
+function sequence_move {
 
     declare src
     declare tgt
