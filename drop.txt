@@ -1,8 +1,0 @@
-create.sh
-current.sh
-edit.sh
-flist.sh
-next.sh
-prefix.sh
-print.sh
-view.sh
