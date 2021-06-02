@@ -10,33 +10,52 @@
 # Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
 #
 
+declare -g prog=$0
 declare -g series_root=~/tex
 
 function usage {
     cat<<EOF>&2
 Syntelos series is a journal toolbox.
 
-    series <s> circa [?]          Current working directory.  Alt path prefix for 
-                                  <current>, <list>, and <next>.
+    series <s> circa [?]                       Current working directory.  Alt path 
+                                               prefix for 
+                                               <current>, <list>, and <next>.
 
-    series <s> compile [x]        Produce La/TeX output, default DVI.  Opt 'pdf', 'ps',
-                                  or 'png'.  
+    series <s> compile [x]                     Produce La/TeX output, default DVI.
+                                               Opt 'pdf', 'ps', or 'png'.  
 
-    series <s> current [x]        Relative path of current file.  Opt <fext> def 'tex'.
+    series <s> current [x]                     Relative path of current file.
+                                               Opt <fext> def 'tex'.
 
-    series <s> dir [?]            Series directory.  Alt absolute path for <circa>,
-                                   <current>, <list>, or <next>.
+    series <s> dir [?]                         Series directory.  Alt absolute path
+                                               for <circa>, <current>, <list>,
+                                               or <next>.
 
-    series <s> list               List files in set of current.
+    series <s> list                            List files in set of current.
 
-    series <s> name               Series directory base name.
+    series <s> name                            Series directory base name.
 
-    series <s> next [x]           Relative path of future file.  Opt <fext> def 'tex'.
+    series <s> next [x]                        Relative path of future file.  Opt
+                                               <fext> def 'tex'.
 
-    series <s> print [x]          Produce La/TeX output, default DVI.  Opt 'pdf',
-                                  'ps', or 'png'.
+    series <s> print [x]                       Produce La/TeX output, default DVI. 
+                                               Opt 'pdf', 'ps', or 'png'.
 
-    series <s> prefix             Series file prefix.
+    series <s> prefix                          Series file prefix.
+
+    series <s> batch mdb [init|list]           Series batch sequence process 
+                                               begins with mdb init.
+
+    series <s> batch mdb list [index|msg]      Series batch list is intermediate
+                                               to series batch sequence.
+
+    series <s> batch sequence                  Perform batch transformation to 
+                                               sequence.
+
+    series <s> batch index [init|list|count]   Series batch encoding begins with 
+                                               index init.
+
+    series <s> batch encode                    Series batch encode index to MP4.
 
 
 Description
@@ -318,6 +337,264 @@ function series_process_list {
     fi
 }
 
+function series_batch_mdb_init {
+
+    if rm -f m.db
+    then
+        #
+        # enumerate batch resource (excluding target prefix)
+        #
+        for src in $(2>/dev/null ls | egrep -v '^[0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9]-')
+        do
+            if msg=$(git log "${src}" | tail -n 1 | sed 's/^ *//; s/ /%/g;') &&[ -n "${msg}" ]
+            then
+                echo ${msg}:${src} >> m.db
+            fi
+        done
+        #
+        # order batch resource
+        #
+        if mv m.db /tmp/m.db
+        then
+            #
+            lm=0; idx=0;
+            #
+            # index batch resource
+            #
+            for mre in $(cat /tmp/m.db | sed 's/ /%/g')
+            do
+                msg=$(echo ${mre} | awk -F: '{print $1}')
+                src=$(echo ${mre} | awk -F: '{print $2}')
+
+                if [ 0 = "${lm}" ]
+                then
+                    lm=${msg}
+
+                elif [ "${lm}" != "${msg}" ]
+                then
+                    lm=${msg}; idx=$(( ${idx} + 1 ))
+                fi
+                echo ${idx}:${msg}:${src} >> m.db
+            done
+
+            return  0
+
+        else
+            cat<<EOF>&2
+${prog} error: unable to sort 'm.db'.
+EOF
+            rm -f m.db
+            return 1
+        fi
+
+    else
+        cat<<EOF>&2
+${prog} error: unable to truncate file 'm.db'.
+EOF
+        return 1
+    fi
+}
+
+function series_batch_mdb_list {
+
+    if [ -f m.db ]
+    then
+
+        for mre in $(cat m.db)
+        do
+
+            idx=$(echo ${mre} | awk -F: '{print $1}')
+            msg=$(echo ${mre} | awk -F: '{print $2}' | sed 's/%/ /g')
+            src=$(echo ${mre} | awk -F: '{print $3}')
+
+            case "${1}" in
+                index)
+                    echo ${idx} ${src}
+                    ;;
+                log)
+                    echo ${msg} ${src}
+                    ;;
+                *)
+                    echo ${idx} ${src} ${msg}
+                    ;;
+            esac
+
+        done
+    else
+        cat <<EOF>&2
+$prog error: missing file 'm.db'.
+EOF
+        return 1
+    fi
+}
+
+function series_batch_sequence_target {
+
+    if [ -n "${1}" ]&&[ -f "${1}" ]
+    then
+        prefix=$(date -r "${1}" '+%Y%m%d-%H%M')
+
+        if found=$(2>/dev/null echo "${1}" | egrep -e "^${prefix}-") && [ -n "${found}" ]
+        then
+            echo "${1}"
+        else
+            echo "${prefix}-${1}"
+        fi
+        return 0
+    else
+        return 1
+    fi
+}
+
+function series_batch_sequence {
+
+    if [ -f m.db ]&& rm -f /tmp/batch
+    then
+        declare idx=0
+        declare msg
+        declare src
+        declare tgt
+        declare cnt=0
+
+        while true
+        do
+            rm -f /tmp/batch
+            cnt=0
+            for mre in $(egrep -e "^${idx}:" m.db)
+            do
+                msg=$(echo ${mre} | awk -F: '{print $2}' | sed 's/%/ /g')
+                src=$(echo ${mre} | awk -F: '{print $3}')
+
+                # (batch interior)
+                #
+                if tgt=$(series_batch_sequence_target "${src}") &&[ -n "${tgt}" ]
+                then
+                    echo ${src} >> /tmp/batch
+
+                    # (batch op)
+                    #
+                    if git mv -f "${src}" "${tgt}"
+                    then
+                        git status --porcelain "${tgt}"
+                    fi
+                else
+                    cat<<EOF>&2
+$0 error from "../target.sh '${src}' -> '${tgt}'".
+EOF
+                    #(return 1) #(ignore)
+                fi
+
+                cnt=$(( ${cnt} + 1 ))
+            done
+
+            # (batch exterior)
+            #
+            if [ -f /tmp/batch ]&& batch=$(cat /tmp/batch) && [ -n "${batch}" ]
+            then
+                git commit -m "${msg}" ${batch}
+            fi
+            #
+            if [ 0 -lt ${cnt} ]
+            then
+                idx=$(( ${idx} + 1 ))
+            else
+                break
+            fi
+        done
+        return 0
+    else
+        cat<<EOF>&2
+$0 error: missing resource 'm.db', or failed to vacate '/tmp/batch'.
+EOF
+        return 1
+    fi
+}
+
+function series_batch_index {
+
+    case "${1}" in
+        init)
+            shift
+            if 2>/dev/null ls ${series_circa}*.png > index.txt
+            then
+                return 0
+            else
+                return 1
+            fi
+            ;;
+        list)
+            shift
+            if [ -f index.txt ]&& 2>/dev/null cat index.txt
+            then
+                return 0
+            else
+                return 1
+            fi
+            ;;
+        count)
+            shift
+            if [ -f index.txt ]&& 2>/dev/null wc -l index.txt | awk '{print $1}'
+            then
+                return 0
+            else
+                return 1
+            fi
+            ;;
+    esac
+}
+
+declare -g series_summary=${series_prefix}-${series_today}
+declare -g series_summary_animation=${series_summary}.mp4
+
+function series_batch_encode {
+
+    if [ -f index.txt ]
+    then
+        if [ -d /tmp/encode ]
+        then
+            rm -f /tmp/encode/* 
+        else
+            mkdir /tmp/encode
+        fi
+
+        if cd /tmp/encode
+        then
+            #
+            # ffmpeg requires (glob) [source prefix]
+            #
+            if found=$(egrep -e '^camera-' ${series_dir}/${series_circa}/index.txt) &&
+                    [ -n "${found}" ]
+            then
+                #
+                for src in $(cat ${series_dir}/${series_circa}/index.txt)
+                do
+                    if cp -p ${src} .
+                    then
+                        continue
+                    else
+                        return 1
+                    fi
+                done
+            else
+                #
+                for base in $(cat ${series_dir}/${series_circa}/index.txt) 
+                do
+                    cp -p ${series_dir}/${series_circa}/${base} camera-${base}
+                done
+            fi
+
+
+            if ffmpeg -y -framerate 1 -pattern_type glob -i "camera-*.png" ${series_dir}/${series_circa}/${summary_animation}
+            then
+                return 0;
+            else
+                return 1
+            fi
+        fi
+    fi
+    return 1
+}
+
 if series_init $* && cd ${series_dir}/${series_circa}
 then
     shift
@@ -325,6 +602,76 @@ then
     then
         case "${1}" in
 
+            batch)
+                shift
+                if [ -n "${1}" ]
+                then
+                    case "${1}" in
+                        mdb)
+                            shift
+                            if [ -n "${1}" ]
+                            then
+                                case "${1}" in
+                                    init)
+                                        shift
+                                        if series_batch_mdb_init $* 
+                                        then
+                                            exit 0
+                                        else
+                                            exit 1
+                                        fi
+                                        ;;
+                                    list)
+                                        shift
+                                        if series_batch_mdb_list $* 
+                                        then
+                                            exit 0
+                                        else
+                                            exit 1
+                                        fi
+                                        ;;
+                                    *)
+                                        usage
+                                        ;;
+                                esac
+                            else
+                                usage
+                            fi
+                            ;;
+
+                        seq|sequence)
+                            shift
+                            if series_batch_sequence $* 
+                            then
+                                exit 0
+                            else
+                                exit 1
+                            fi
+                            ;;
+                        idx|index)
+                            shift
+                            if series_batch_index $* 
+                            then
+                                exit 0
+                            else
+                                exit 1
+                            fi
+                            ;;
+                        enc|encode)
+                            shift
+                            if series_batch_encode $* 
+                            then
+                                exit 0
+                            else
+                                exit 1
+                            fi
+                            ;;
+                        *)
+                            usage
+                            ;;
+                    esac
+                fi
+                ;;
             circa)
                 shift
                 if [ -n "${1}" ]
