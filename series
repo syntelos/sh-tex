@@ -489,7 +489,7 @@ EOF
 
             # (batch exterior)
             #
-            if [ -f /tmp/batch ]&& batch=$(cat /tmp/batch) && [ -n "${batch}" ]
+            if [ -f /tmp/batch ]&& batch=$(2>/dev/null cat /tmp/batch) && [ -n "${batch}" ]
             then
                 git commit -m "${msg}" ${batch}
             fi

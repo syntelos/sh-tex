@@ -1,0 +1,135 @@
+#!/bin/bash
+
+declare -g sequence_prog=$0
+#
+#
+#
+function sequence_usage {
+    cat<<EOF>&2
+
+Synopsis
+
+  ${sequence_prog} move [file]+ 
+
+Description
+
+  Rename files to a sequence by adding a
+  "YYYYMMDD-HHMM-" prefix.
+
+
+Synopsis
+
+  ${sequence_prog} file [file]+ 
+
+Description
+
+  Print sequence file name, adding 
+  "YYYYMMDD-HHMM-" prefix when missing.
+
+
+EOF
+    exit 1
+}
+#
+#
+#
+function sequence_file {
+
+    declare dir
+    declare src
+    declare prefix
+    declare tgt
+
+    while [ -n "${1}" ]&&[ -f "${1}" ]
+    do
+        dir=$(dirname "${1}")
+        src=$(basename "${1}")
+        prefix=$(date -r "${1}" '+%Y%m%d-%H%M')
+
+        shift
+
+        if found=$(2>/dev/null echo "${src}" | egrep -e "^${prefix}-") && [ -n "${found}" ]
+        then
+            tgt="${src}"
+        else
+            tgt="${prefix}-${src}"
+        fi
+
+        if [ -n "${dir}" ]&&[ '.' != "${dir}" ]
+        then
+            echo "${dir}/${tgt}"
+        else
+            echo "${tgt}"
+        fi
+    done
+    return 0
+}
+#
+#
+#
+function sequence {
+
+    declare src
+    declare tgt
+
+    while [ -n "${1}" ] && [ -f "${1}" ]
+    do
+        src="${1}"
+        shift
+
+        if tgt=$(sequence_file "${src}" ) && [ -n "${tgt}" ]
+        then
+            if [ "${src}" != "${tgt}" ]
+            then
+                if 2>/dev/null 1>/dev/null git status "${src}"
+                then
+                    if git mv "${src}" "${tgt}"
+                    then
+                        continue
+                    else
+                        return 1
+                    fi
+                else
+                    if mv "${src}" "${tgt}"
+                    then
+                        continue
+                    else
+                        return 1
+                    fi
+                fi
+            fi
+        fi
+    done
+    return 0
+}
+#
+#
+#
+if [ -n "${1}" ]
+then
+    case "${1}" in
+        move)
+            shift
+            if sequence_move $*
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        file)
+            shift
+            if sequence_file $*
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        *)
+            sequence_usage
+            ;;
+    esac
+else
+    sequence_usage
+fi
