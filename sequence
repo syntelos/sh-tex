@@ -81,7 +81,9 @@ function sequence_move {
         then
             if [ "${src}" != "${tgt}" ]
             then
-                if 2>/dev/null 1>/dev/null git status "${src}"
+                2>/dev/null 1>/dev/null git status "${src}"
+                rc=$?
+                if [ 0 -eq ${rc} ]
                 then
                     if git mv "${src}" "${tgt}"
                     then
