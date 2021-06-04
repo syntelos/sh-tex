@@ -1,0 +1,260 @@
+#!/bin/bash
+
+camera_prog=$(basename $0)
+
+function camera_usage {
+    cat<<EOF>&2
+
+Synopsis
+
+  camera open tgt many       Create index space size <many> before index <tgt>.
+
+  camera close tgt           Close index space from index <tgt> to end.  
+                             The index <tgt> is expected to be vacant.
+
+  camera insert tgt src      Copy file source into index target.
+
+  camera import tgt src+     Copy file(s) source into index target.
+
+Description
+
+  The working directory is <"%03d".png> source for <ffmpeg>.  An
+  <index> is a decimal number in "%03d" index (name) space between
+  zero and 999 inclusive.  Source files are conventional, fully
+  qualified file names.  Target files are referenced by decimal
+  number, not "conventional file name".
+
+  Encoder
+
+    ffmpeg -y -pattern_type glob -i "*.png"  output.mp4
+
+EOF
+    exit 1
+}
+
+function file_index {
+    index="${1}"
+    if [ 0 -le ${index} ]
+    then
+        printf "%03d.png" ${index}
+        return 0
+    else
+        return 1
+    fi
+}
+
+function index_file {
+    file="${1}"
+
+    index=$(echo ${file} | sed 's/\.png$//; s/^0//g;')
+
+    if [ 0 -le ${index} ]
+    then
+        echo ${index}
+
+        return 0
+    else
+        return 1
+    fi
+}
+
+function camera_open {
+    src="${1}"
+    many="${2}"
+    if [ 0 -le ${src} ]&&[ 1 -le ${many} ]
+    then
+        tgt=$(( ${src} + ${many} ))
+
+        if srcf=$(file_index ${src} ) && tgtf=$(file_index ${tgt} )
+        then
+            if [ -f "${tgtf}" ]
+            then
+                #
+                # tail to head motion
+                #
+                if lastf=$(2>/dev/null ls *.png | egrep -e '^[0-9][0-9][0-9].png$' | sort | tail -n 1 ) && [ -n "${lastf}" ]
+                then
+                    last=$(index_file ${lastf})
+                    tail=$(( ${last} + ${many} ))
+                    tailf=$(file_index ${tail} )
+
+                    while [ ${src} -le ${last} ]
+                    do
+                        if mv "${lastf}" "${tailf}"
+                        then
+                            last=$(( ${last} - 1 ))
+                            tail=$(( ${last} + ${many} ))
+
+                            lastf=$(file_index ${last} )
+                            tailf=$(file_index ${tail} )
+                        else
+                            cat<<EOF>&2
+[camera open] error in 'mv "${lastf}" "${tailf}"'.
+EOF
+                            return 1
+                        fi
+                    done
+                fi
+            else
+                #
+                # head to tail motion
+                #
+                # assumes that index space is contiguous in the region
+                # of effect
+                #
+                # target collision violates requirements and
+                # assumptions, in which event this fails objective
+                # completion silently
+                #
+                while [ -f "${srcf}" ]&&[ ! -f "${tgtf}" ]
+                do
+                    if mv "${srcf}" "${tgtf}"
+                    then
+                        src=$(( ${src} + 1 ))
+                        tgt=$(( ${tgt} + 1 ))
+
+                        srcf=$(file_index ${src} )
+                        tgtf=$(file_index ${tgt} )
+
+                    else
+                        cat<<EOF>&2
+[camera open] error in 'mv "${srcf}" "${tgtf}"'.
+EOF
+                        return 1
+                    fi
+                done
+                return 0
+            fi
+        else
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+
+function count_close {
+    index="${1}"
+    count=0
+    
+    while file=$(file_index ${index})
+    do
+        if [ -f ${file} ]
+        then
+            break
+        else
+            count=$(( ${count} + 1 ))
+            index=$(( ${index} + 1 ))
+        fi
+    done
+
+    echo ${count}
+    return 0
+}
+
+function camera_close {
+    tgt="${1}"
+    if many=$(count_close ${tgt}) && [ 0 -lt ${many} ]
+    then
+        src=$(( ${tgt} + ${many} ))
+
+        tgtf=$(file_index ${tgt} )
+        srcf=$(file_index ${src} )
+
+        while [ -f "${srcf}" ]&&[ ! -f "${tgtf}" ]
+        do
+            if mv "${srcf}" "${tgtf}"
+            then
+                tgt=$(( ${tgt} + 1 ))
+                src=$(( ${src} + 1 ))
+                
+                tgtf=$(file_index ${tgt} )
+                srcf=$(file_index ${src} )
+            else
+                cat<<EOF>&2
+[camera close] error in 'mv "${srcf}" "${tgtf}"'.
+EOF
+                return 1
+            fi
+        done
+        return 0
+    else
+        return 1
+    fi
+}
+
+function camera_insert {
+    tgt="${1}"
+    src="${2}"
+
+    if tgtf=$(file_index ${tgt})
+    then
+
+        if [ -f "${tgtf}" ]
+        then
+            camera_open ${tgt} 1
+        fi
+
+        if cp -p "${src}" "${tgtf}"
+        then
+            return 0
+        else
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+
+function camera_import {
+    tgt="${1}"
+    shift
+    for src in $*
+    do
+        if camera_insert ${tgt} ${src}
+        then
+            tgt=$(( ${tgt} + 1 ))
+        else
+            return 1
+        fi
+    done
+    return 0
+}
+
+if [ -n "${1}" ]
+then
+    case "${1}" in
+        open)
+            shift
+            if camera_open $*
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        close)
+            shift
+            if camera_close $*
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        import)
+            shift
+            if camera_import $*
+            then
+                exit 0
+            else
+                exit 1
+            fi
+            ;;
+        *)
+            camera_usage
+            ;;
+    esac
+else
+    camera_usage
+fi
