@@ -1,0 +1,5 @@
+#!/bin/bash
+
+target=$(basename $(pwd)).mp4
+
+ffmpeg -y -framerate 0.3 -pattern_type glob -i '*.png' ${target}
