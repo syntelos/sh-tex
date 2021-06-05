@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -x
-
 declare -g title_prefix
 
 function title_usage {
