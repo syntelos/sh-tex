@@ -60,6 +60,7 @@ function title_exist {
 
     if exist=$(2>/dev/null ls -d ${title_prefix}-* | sort -V | tail -n 1) && [ -n "${exist}" ]
     then
+        echo ${exist}
         return 0
     else
         return 1
