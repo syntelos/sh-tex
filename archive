@@ -39,6 +39,8 @@ Syntelos archive is a referential frame for the screenshot camera.
     ${root} copy                        Copy <store> list into today's archive <index>
                                         '${index}'.
 
+    ${root} dist [fi|mv] <files>        Locate or distribute files into archive.
+
     ${root} echo <m>                    Append <m> to <labels>.
 
     ${root} home [head|tail|list]       Prefix output with absolute location.
@@ -162,6 +164,48 @@ function copyto {
     esac
 
 
+}
+#
+function dist {
+
+    case "${1}" in
+        fi|fil|file|tgt|target)
+            shift
+            for src in $*
+            do
+                if [ -f ${src} ]
+                then
+                    tgt=archive/$(date -r ${src} '+%Y')/$(date -r ${src} '+%m%d')/$(basename ${src})
+                    echo ${tgt}
+                else
+                    return 1
+                fi
+            done
+            return 0
+            ;;
+        mv|move)
+            shift
+            for src in $*
+            do
+                if [ -f ${src} ]
+                then
+                    tgt=archive/$(date -r ${src} '+%Y')/$(date -r ${src} '+%m%d')/$(basename ${src})
+                    if mv ${src} ${tgt}
+                    then
+                        continue
+                    else
+                        return 1
+                    fi
+                else
+                    return 1
+                fi
+            done
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
 }
 #
 function edit {
@@ -508,6 +552,15 @@ then
             count)
                 shift
                 if count $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;
+            dist)
+                shift
+                if dist $*
                 then
                     exit 0
                 else
