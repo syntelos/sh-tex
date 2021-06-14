@@ -1,0 +1,76 @@
+#!/bin/bash
+
+declare -g opt
+declare -g file
+
+function usage {
+    cat<<EOF>&2
+Synopsis
+
+  $0 
+
+  $0 -r file
+
+  $0 -n file
+
+Description
+
+  Print MMDD information derived from clock or file.
+
+EOF
+}
+function reference {
+    date -r "${file}" +%m%d
+    return 0
+}
+function filename {
+    for tok in $(echo ${file} | sed 's%-% %g')
+    do
+        if [ -n "$(echo ${tok} | egrep '^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$')" ]
+        then
+            tail=$(echo ${tok} | sed 's%....%%')
+
+            if [ -n "${tail}" ]
+            then
+                echo ${tail}
+                return 0
+            else
+                return 1
+            fi
+        fi
+    done
+    return 1
+}
+#
+#
+#
+if [ -z "${1}" ]
+then
+    date +%m%d
+
+elif [ -n "${1}" ]&&[ -n "${2}" ]
+then
+    opt="${1}"
+    file="${2}"
+    
+    case "${opt}" in
+        -r)
+            if reference "${file}"
+            then
+                exit 0
+            else
+                exit 1
+            fi
+        ;;
+        -n)
+            if filename "${file}"
+            then
+                exit 0
+            else
+                exit 1
+            fi
+        ;;
+    esac
+else
+    usage
+fi
