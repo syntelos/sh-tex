@@ -130,7 +130,7 @@ declare -g series_today=$(date +%Y%m%d)
 
 function series_base_tail {
 
-    if 2>/dev/null ls ${series_dir}/${series_circa}/${series_prefix}-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9]\.* | sort -V | tail -n 1
+    if 2>/dev/null ls ${series_dir}/${series_circa}/${series_prefix}-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9]\.tex | sort -V | tail -n 1
     then
         return 0
     else
@@ -176,27 +176,29 @@ function series_file_current {
 }
 
 function series_base_next {
-    p="${series_prefix}-${series_today}-"
+    p="${series_prefix}-"
+    d="${series_today}-"
     x="0"
 
     if tgt=$(series_base_tail) && [ -n "${tgt}" ]
     then
 
-        if x=$(echo "${tgt}" | sed "s%.*${p}%%;" | sed 's%\.[a-z][a-z][a-z]$%%; s%[A-Za-z_]*-%%;') &&[ -n "${x}" ]
+        if z=$(echo "${tgt}" | egrep -e "/${p}${d}" | sed "s%.*/${p}${d}%%;" | sed 's%\.[a-z][a-z][a-z]$%%;') &&[ -n "${z}" ]
         then
-            if x=$(( ${x} + 1 )) && [ 0 -le ${x} ]
+            if z=$(( ${z} + 1 )) && [ 0 -le ${z} ]
             then
 
-                echo ${p}${x}
+                echo ${p}${d}${z}
                 return 0
             else
                 return 1
             fi
         else
-            return 1
+            echo ${p}${d}${x}
+            return 0
         fi
     else
-        echo ${p}${x}
+        echo ${p}${d}${x}
         return 0
     fi
 }
