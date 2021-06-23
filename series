@@ -261,76 +261,119 @@ EOF
 }
 
 function series_process_compile {
-    if tex_file=$(series_file_current) && [ -n "${tex_file}" ]
+    dir=${series_dir}/${series_circa}
+
+    if tex_file=${dir}/$(series_file_current) && [ -n "${tex_file}" ]
     then
         dvi_file=$(echo ${tex_file} | sed 's/\.tex$/.dvi/')
+        ps_file=$(echo ${tex_file} | sed 's/\.tex$/.ps/')
+        pdf_file=$(echo ${tex_file} | sed 's/\.tex$/.pdf/')
+        png_file=$(echo ${tex_file} | sed 's/\.tex$/.png/')
+        #
+        # Produce DVI from TEX using 'tex', and then derive
+        # alternative products selectively.
+        #
+        declare src
+        declare tgt
+        declare compiler
+        declare compilation
 
-        src=${series_dir}/${series_circa}/${tex_file}
-        tgt=${series_dir}/${series_circa}/${dvi_file}
-
-        if [ -n "$(egrep -e '^\\documentclass' ${src} )" ]
+        if [ -n "${1}" ]
         then
-            if [ -f "${tgt}" ]
-            then
-                compiler=latex
+            case "${1}" in
+                dvi)
+                    src=${tex_file}
+                    tgt=${dvi_file}
+                    if [ -n "$(egrep -e '^\\documentclass' ${tex_file} )" ]
+                    then
+                        if [ "pdf" = "${1}" ]
+                        then
+                            compiler=pdflatex
+                        else
+                            compiler=latex
+                        fi
+                    else
+                        if [ "pdf" = "${1}" ]
+                        then
+                            compiler=pdftex
+                        else
+                            compiler=tex
+                        fi
+                    fi
+                    compilation="${compiler} ${src}"
+                ;;
+                ps)
+                    if [ -f ${dvi_file} ]&&[ ${dvi_file} -nt ${tex_file} ]
+                    then
+                        src=${dvi_file}
+                        tgt=${ps_file}
+                        compiler=dvips
+                        compilation="${compiler} -o ${tgt} ${src}"
+                    else
+                        return 1
+                    fi
+                ;;
+                pdf)
+                    if [ -f ${ps_file} ]&&[ ${ps_file} -nt ${tex_file} ]
+                    then
+                        src=${ps_file}
+                        tgt=${pdf_file}
+                        compiler=ps2pdf
+                        compilation="${compiler} ${src} ${tgt}"
 
-            elif [ -n "${1}" ]&&[ 'pdf' = "${1}" ]
-            then
-                tgt=$(echo ${src} | sed 's/\.tex$/.pdf/')
-                compiler=pdflatex
-            else
-                tgt=$(echo ${src} | sed 's/\.tex$/.dvi/')
-                compiler=latex
-            fi
+                    elif [ -f ${dvi_file} ]&&[ ${dvi_file} -nt ${tex_file} ]
+                    then
+                        src=${dvi_file}
+                        tgt=${pdf_file}
+                        compiler=dvipdf
+                        compilation="${compiler} ${src} ${tgt}"
+
+                    else
+                        return 1
+                    fi
+                ;;
+                png)
+                    if [ -f ${dvi_file} ]&&[ ${dvi_file} -nt ${tex_file} ]
+                    then
+                        src=${dvi_file}
+                        tgt=${png_file}
+                        compiler=dvipng
+                        compilation="${compiler} -p '=1' -T bbox -o ${tgt} ${src}"
+                    else
+                        return 1
+                    fi
+                    ;;
+                *)
+                    return 1
+                    ;;
+            esac
         else
-            if [ -f "${tgt}" ]
+            src=${tex_file}
+            tgt=${dvi_file}
+            if [ -n "$(egrep -e '^\\documentclass' ${tex_file} )" ]
             then
-                compiler=tex
-
-            elif [ -n "${1}" ]&&[ 'pdf' = "${1}" ]
-            then
-                tgt=$(echo ${src} | sed 's/\.tex$/.pdf/')
-                compiler=pdftex
+                if [ "pdf" = "${1}" ]
+                then
+                    compiler=pdflatex
+                else
+                    compiler=latex
+                fi
             else
-                tgt=$(echo ${src} | sed 's/\.tex$/.dvi/')
-                compiler=tex
+                if [ "pdf" = "${1}" ]
+                then
+                    compiler=pdftex
+                else
+                    compiler=tex
+                fi
             fi
+            compilation="${compiler} ${src}"
         fi
 
-        if ${compiler} ${src}
+        if ${compilation}
         then
+
             git add ${tgt}
 
-            if [ -n "${1}" ]
-            then
-                case "${1}" in
-
-                    pdf)
-                        tgt2=$(echo ${tgt} | sed 's/\.dvi$/.pdf/')
-
-                        if dvipdf ${tgt} ${tgt2}
-                        then
-                            git add ${tgt2}
-                        fi
-                        ;;
-                    png)
-                        tgt2=$(echo ${tgt} | sed 's/\.dvi$/.png/')
-
-                        if dvipng -p '=1' -T bbox -o ${tgt2} ${tgt}
-                        then
-                            git add ${tgt2}
-                        fi
-                        ;;
-                    ps)
-                        tgt2=$(echo ${tgt} | sed 's/\.dvi$/.ps/')
-
-                        if dvips -o ${tgt2} ${tgt}
-                        then
-                            git add ${tgt2}
-                        fi
-                        ;;
-                esac
-            fi
             return 0
         else
             return 1
