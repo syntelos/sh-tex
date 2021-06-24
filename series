@@ -273,32 +273,27 @@ function series_process_compile {
         # Produce DVI from TEX using 'tex', and then derive
         # alternative products selectively.
         #
+        declare product
         declare src
         declare tgt
         declare compiler
         declare compilation
 
-        if [ -n "${1}" ]
-        then
-            case "${1}" in
+        while [ -n "${1}" ]
+        do
+            product="${1}"
+            echo "# ${product}"
+            shift
+
+            case "${product}" in
                 dvi)
                     src=${tex_file}
                     tgt=${dvi_file}
                     if [ -n "$(egrep -e '^\\documentclass' ${tex_file} )" ]
                     then
-                        if [ "pdf" = "${1}" ]
-                        then
-                            compiler=pdflatex
-                        else
-                            compiler=latex
-                        fi
+                        compiler=latex
                     else
-                        if [ "pdf" = "${1}" ]
-                        then
-                            compiler=pdftex
-                        else
-                            compiler=tex
-                        fi
+                        compiler=tex
                     fi
                     compilation="${compiler} ${src}"
                 ;;
@@ -347,37 +342,18 @@ function series_process_compile {
                     return 1
                     ;;
             esac
-        else
-            src=${tex_file}
-            tgt=${dvi_file}
-            if [ -n "$(egrep -e '^\\documentclass' ${tex_file} )" ]
+
+
+            if ${compilation}
             then
-                if [ "pdf" = "${1}" ]
-                then
-                    compiler=pdflatex
-                else
-                    compiler=latex
-                fi
+                git add ${tgt}
+                git status --porcelain ${tgt}
             else
-                if [ "pdf" = "${1}" ]
-                then
-                    compiler=pdftex
-                else
-                    compiler=tex
-                fi
+                return 1
             fi
-            compilation="${compiler} ${src}"
-        fi
-
-        if ${compilation}
-        then
-
-            git add ${tgt}
-
-            return 0
-        else
-            return 1
-        fi
+        done
+        
+        return 0
     else
         return 1
     fi
@@ -767,7 +743,7 @@ then
                 ;;
             compile|print)
                 shift
-                if series_process_compile $*
+                if series_process_compile dvi $*
                 then
                     exit 0
                 else
