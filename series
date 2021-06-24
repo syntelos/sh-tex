@@ -24,6 +24,8 @@ Syntelos series is a journal toolbox.
     series <s> compile [x]                     Produce La/TeX output, default DVI.
                                                Opt 'pdf', 'ps', or 'png'.  
 
+    series <s> commit msg                      Perform "git commit -a -m '${msg}'".
+
     series <s> current [x]                     Relative path of current file.
                                                Opt <fext> def 'tex'.
 
@@ -260,6 +262,14 @@ EOF
     fi
 }
 
+function series_process_commit {
+    if git commit -a -m "${1}"
+    then
+        return 1
+    else
+        return 0
+    fi
+}
 function series_process_compile {
     dir=${series_dir}/${series_circa}
 
@@ -739,6 +749,15 @@ then
                 else
                     echo ${series_circa}
                     exit 0
+                fi
+                ;;
+            commit)
+                shift
+                if series_process_commit "${1}"
+                then
+                    exit 0
+                else
+                    exit 1
                 fi
                 ;;
             compile|print)
