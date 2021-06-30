@@ -1,0 +1,693 @@
+#!/bin/bash
+#
+# Syntelos Subversion
+# Copyright (C) 2021, John Pritchard, @syntelos
+# CC-BY-NC
+# This work is licensed under the Creative Commons
+# Attribution-NonCommercial 4.0 International License. To view a copy
+# of this license, visit
+# http://creativecommons.org/licenses/by-nc/4.0/ or send a letter to
+# Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+#
+
+#
+# Reconfigurable root of all available content repositories.
+#
+declare -g subversion_root=~/tex
+
+#
+#
+#
+function usage {
+    cat<<EOF>&2
+Syntelos subversion is a journal toolbox.
+
+Review
+
+    subversion [series] base {current|next}
+
+    subversion [series] create <fext>?
+
+    subversion [series] current <fext>?
+
+    subversion [series] next <fext>?
+
+    subversion [series] compile <target>?
+
+    subversion [series] commit <message>
+
+    subversion [series] clean <fext>?
+
+    subversion [series] file {current|next} <fext>?
+
+    subversion [series] list
+
+Structure
+
+    A series is found in directory
+
+        {type}-{prefix}
+
+    for {type} one of 'x' or 'tex', and {prefix} being the series
+    unique identifier.  Within the series directory there are annual
+    subdirectories, such that the first object of type 'tex' begun or
+    created on 2021/06/30 is found at location
+
+        tex-{prefix}/2021/{prefix}-20210630-0/{prefix}-20210630-0.tex
+
+    The {type} 'x' represents the multiple or "open" media type.  
+
+Configuration
+
+    The series directory is expected to be a 'git' content repository.
+
+    There is a common <root> directory containing all available
+    repositories, which is encoded into this program.
+
+EOF
+    exit 1
+}
+#
+declare -g subversion_prog=$0
+declare -g subversion_circa=$(yyyy)
+if [ -z "${subversion_circa}" ]
+then
+    cat<<EOF>&2
+${subversion_prog} configuration error: missing program 'yyyy'.
+EOF
+    exit 1
+fi
+declare -g subversion_today=$(yyyymmdd)
+if [ -z "${subversion_today}" ]
+then
+    cat<<EOF>&2
+${subversion_prog} configuration error: missing program 'yyyymmdd'.
+EOF
+    exit 1
+fi
+#
+# Independent absolute path location of content repository directory,
+# "/home/jdp/tex/tex-journal".
+#
+declare -g subversion_dir
+#
+# Independent path element identifier of content repository directory,
+# e.g. "tex-journal".
+#
+declare -g subversion_name
+#
+# Independent content prefix identifier, e.g. "journal".
+#
+declare -g subversion_prefix
+#
+# Determine independent configuration state.
+#
+function subversion_init {
+    if [ -n "${1}" ]
+    then
+        #
+        # Let me see if I can kick this can down this street.
+        #
+        if [ -d "${subversion_root}/${1}" ]
+        then
+            subversion_dir=${subversion_root}/${1}
+            
+            subversion_name=$(basename "${subversion_dir}")
+            #
+            # given "a/a-b", trunc "a-" from "a-b"
+            #
+            rep=$(basename $(dirname "${subversion_dir}"))
+
+            if [ -n "$(echo ${subversion_name} | egrep -e ^${rep}- )" ]
+            then
+                subversion_prefix=$(echo ${subversion_name} | sed "s%^${rep}-%%")
+            else
+                subversion_prefix="${subversion_name}"
+            fi
+            return 0
+
+        #
+        # dir type prefix 'tex'
+        #
+        elif [ -d "${subversion_root}/tex-${1}" ]
+        then
+            subversion_dir=${subversion_root}/tex-${1}
+            subversion_name=$(basename "${subversion_dir}")
+            subversion_prefix="${1}"
+            return 0
+
+        #
+        # dir type prefix 'x'
+        #
+        elif [ -d "${subversion_root}/x-${1}" ]
+        then
+            subversion_dir=${subversion_root}/x-${1}
+            subversion_name=$(basename "${subversion_dir}")
+            subversion_prefix="${1}"
+            return 0
+
+        else
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+#
+# Select most recent subversion series element directory
+#
+function series_base_tail {
+
+    if 2>/dev/null ls -d ${subversion_dir}/${subversion_circa}/${subversion_prefix}-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9] | sort -V | tail -n 1
+    then
+        return 0
+    else
+        return 1
+    fi
+}
+#
+# Get or create {prefix}-{yyyymmdd}-{ordinal} string.
+#
+function series_base_current {
+    p="${subversion_prefix}-"
+    d="${subversion_today}-"
+    x="0"
+
+    if tgt=$(series_base_tail) && [ -n "${tgt}" ]
+    then
+
+        if dx=$(echo "${tgt}" | sed "s%.*${p}%%;") &&[ -n "${dx}" ]
+        then
+
+            echo ${p}${dx}
+            return 0
+        else
+            return 1
+        fi
+    else
+        echo ${p}${d}${x}
+        return 0
+    fi
+}
+#
+# 
+#
+function series_file_current {
+
+    if base=$(series_base_current) && [ -n "${base}" ]
+    then
+        if [ -n "${1}" ]
+        then
+            echo ${base}/${base}.${1}
+        else
+            echo ${base}/${base}.tex
+        fi
+        return 0
+    else
+        return 1
+    fi
+}
+#
+function series_base_next {
+    p="${subversion_prefix}-"
+    d="${subversion_today}-"
+    x="0"
+
+    if tgt=$(series_base_tail) && [ -n "${tgt}" ]
+    then
+
+        if z=$(echo "${tgt}" | egrep -e "/${p}${d}" | sed "s%.*/${p}${d}%%;") &&[ -n "${z}" ]
+        then
+            if z=$(( ${z} + 1 )) && [ 0 -le ${z} ]
+            then
+
+                echo ${p}${d}${z}
+                return 0
+            else
+                return 1
+            fi
+        else
+            echo ${p}${d}${x}
+            return 0
+        fi
+    else
+        echo ${p}${d}${x}
+        return 0
+    fi
+}
+#
+function series_file_next {
+    if base=$(series_base_next) && [ -n "${base}" ]
+    then
+        if [ -n "${1}" ]
+        then
+            echo ${base}/${base}.${1}
+        else
+            echo ${base}/${base}.tex
+        fi
+        return 0
+    else
+        return 1
+    fi
+}
+#
+function subversion_create {
+    declare fext
+    if [ -n "${1}" ]
+    then
+        fext="${1}"
+    else
+        fext="tex"
+    fi
+
+    if dir=$(series_base_next) && file=$(series_file_next ${fext}) && [ -n "${file}" ]
+    then
+        if [ ! -d ${subversion_dir}/${subversion_circa}/${dir} ]
+        then
+            mkdir -p ${subversion_dir}/${subversion_circa}/${dir}
+        fi
+
+        series_template=${subversion_dir}/${subversion_circa}/template.${fext}
+        if [ -f ${series_template} ]
+        then
+            cp ${series_template} ${subversion_dir}/${subversion_circa}/${file}
+
+        elif [ 'tex' = "${fext}" ]
+        then
+            cat<<EOF>${subversion_dir}/${subversion_circa}/${file}
+\input preamble
+
+
+
+\bye
+EOF
+        else
+            touch ${subversion_dir}/${subversion_circa}/${file}
+        fi
+
+        git add ${subversion_dir}/${subversion_circa}/${file}
+
+        series_editor=emacs
+
+        if [ -n "${EDITOR}" ]
+        then
+            "${EDITOR}" ${subversion_dir}/${subversion_circa}/${file} &
+        else
+            ${series_editor} ${subversion_dir}/${subversion_circa}/${file} &
+        fi
+
+        return 0
+    else
+        return 1
+    fi
+}
+
+#
+function subversion_current {
+    dir=${subversion_dir}/${subversion_circa}
+    if tgt=$(series_file_current $*)
+    then
+        echo ${dir}/${tgt}
+        return 0
+    else
+        return 1
+    fi
+}
+#
+function subversion_next {
+    dir=${subversion_dir}/${subversion_circa}
+    if tgt=$(series_file_next $*)
+    then
+        echo ${dir}/${tgt}
+        return 0
+    else
+        return 1
+    fi
+}
+#
+function subversion_compile_tex {
+    declare dir=${subversion_dir}/${subversion_circa}
+    declare base=$(series_base_current)
+    declare target=${dir}/${base}
+
+    if tex_file=${dir}/$(series_file_current) && [ -n "${tex_file}" ]
+    then
+        dvi_file=${target}.dvi
+        ps_file=${target}.ps
+        pdf_file=${target}.pdf
+        png_file=${target}.png
+        #
+        # Produce DVI from TEX using 'tex', and then derive
+        # alternative products selectively.
+        #
+        declare product
+        declare src
+        declare tgt
+        declare compiler
+        declare compilation
+
+        while [ -n "${1}" ]
+        do
+            product="${1}"
+            echo "# ${product}"
+            shift
+
+            case "${product}" in
+                dvi)
+                    src=${tex_file}
+                    tgt=${dvi_file}
+                    if [ -n "$(egrep -e '^\\documentclass' ${tex_file} )" ]
+                    then
+                        compiler=latex
+                    else
+                        compiler=tex
+                    fi
+                    compilation="${compiler} ${src}"
+                    ;;
+                ps)
+                    if [ -f ${dvi_file} ]&&[ ${dvi_file} -nt ${tex_file} ]
+                    then
+                        src=${dvi_file}
+                        tgt=${ps_file}
+                        compiler=dvips
+                        compilation="${compiler} -o ${tgt} ${src}"
+                    else
+                        return 1
+                    fi
+                    ;;
+                pdf)
+                    if [ -f ${ps_file} ]&&[ ${ps_file} -nt ${tex_file} ]
+                    then
+                        src=${ps_file}
+                        tgt=${pdf_file}
+                        compiler=ps2pdf
+                        compilation="${compiler} ${src} ${tgt}"
+
+                    elif [ -f ${dvi_file} ]&&[ ${dvi_file} -nt ${tex_file} ]
+                    then
+                        src=${dvi_file}
+                        tgt=${pdf_file}
+                        compiler=dvipdf
+                        compilation="${compiler} ${src} ${tgt}"
+
+                    else
+                        return 1
+                    fi
+                    ;;
+                png)
+                    if [ -f ${dvi_file} ]&&[ ${dvi_file} -nt ${tex_file} ]
+                    then
+                        src=${dvi_file}
+                        tgt=${png_file}
+                        compiler=dvipng
+                        compilation="${compiler} -p '=1' -T bbox -o ${tgt} ${src}"
+                    else
+                        return 1
+                    fi
+                    ;;
+                *)
+                    return 1
+                    ;;
+            esac
+
+
+            if ${compilation}
+            then
+                git add ${tgt}
+                git status --porcelain ${tgt}
+            else
+                return 1
+            fi
+        done
+        
+        return 0
+    else
+        return 1
+    fi
+}
+#
+function subversion_compile_mp4 {
+    declare framerate
+    if [ -n "${1}" ]&&[ 0 -lt ${framerate} ]
+    then
+        framerate="${1}"
+    else
+        framerate='0.3'
+    fi
+        
+    if base=$(series_base_current) && cd ${subversion_dir}/${subversion_circa}/${base}
+    then
+        if target=${subversion_dir}/${subversion_circa}/${base}.mp4
+        then
+            if ffmpeg -y -framerate ${framerate} -pattern_type glob -i '*.png' ${target}
+            then
+                return 0
+            else
+                return 1
+            fi
+        else
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+#
+function subversion_compile {
+    declare type
+    if [ -n "${1}" ]
+    then
+        type="${1}"
+    else
+        type='tex'
+    fi
+
+    case ${type} in
+        tex)
+            shift
+            if subversion_compile_tex dvi $*
+            then
+                return 0
+            else
+                return 1
+            fi
+            ;;
+        mp4)
+            shift
+            if subversion_compile_mp4 $*
+            then
+                return 0
+            else
+                return 1
+            fi
+            ;;
+        *)
+            cat<<EOF>&2
+${subversion_prog} ${subversion_prefix} compile {tex|mp4}
+
+EOF
+            return 1
+            ;;
+    esac
+}
+#
+function subversion_commit {
+    if git commit -a -m "${1}"
+    then
+        return 1
+    else
+        return 0
+    fi
+}
+
+#
+function subversion_clean {
+
+    if [ -n "${1}" ]
+    then
+        while [ -n "${1}" ]
+        do
+            rm -f $(find ${subversion_dir}/${subversion_circa} -type f -name "*.${1}")
+            shift
+        done
+
+    else
+        rm -f $(find ${subversion_dir}/${subversion_circa} -type f -name '*.log')
+    fi
+    return 0
+}
+#
+function subversion_list {
+    if base=$(series_base_current $* )
+    then
+        object=${subversion_dir}/${subversion_circa}/${base}
+        if 2>/dev/null ls ${object}.* ${object}/*
+        then
+            return 0
+        else
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+#
+#
+#
+if subversion_init $* && cd ${subversion_dir}/${subversion_circa}
+then
+    shift
+    if [ -n "${1}" ]
+    then
+        case "${1}" in
+            base)
+                shift
+                case "${1}" in
+
+                    current)
+                        if series_base_current | sed "s%^%${subversion_dir}/${subversion_circa}/%"
+                        then
+                            exit 0
+                        else
+                            exit 1
+                        fi
+                        ;;
+                    next)
+                        if series_base_next | sed "s%^%${subversion_dir}/${subversion_circa}/%"
+                        then
+                            exit 0
+                        else
+                            exit 1
+                        fi
+                        ;;
+                    ?)
+                        cat<<EOF>&2
+${subversion_prog} ${subversion_prefix} base {current|next}
+
+EOF
+                        exit 0
+                        ;;
+                    *)
+                        cat<<EOF>&2
+${subversion_prog} error: unrecognized operator '${1}' in "${subversion_prog} ${subversion_prefix} base $*".
+EOF
+                        exit 1
+                        ;;
+                esac
+                ;;
+            create)
+                shift
+                if subversion_create $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;                
+            current)
+                shift
+                if subversion_current $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;                
+            next)
+                shift
+                if subversion_next $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;                
+            compile)
+                shift
+                if subversion_compile $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;                
+            commit)
+                shift
+                if subversion_commit $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;                
+            clean)
+                shift
+                if subversion_clean $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;                
+            file)
+                shift
+                case "${1}" in
+
+                    current)
+                        shift
+                        if series_file_current $* | sed "s%^%${subversion_dir}/${subversion_circa}/%"
+                        then
+                            exit 0
+                        else
+                            exit 1
+                        fi
+                        ;;
+                    next)
+                        shift
+                        if series_file_next $* | sed "s%^%${subversion_dir}/${subversion_circa}/%"
+                        then
+                            exit 0
+                        else
+                            exit 1
+                        fi
+                        ;;
+                    ?)
+                        cat<<EOF>&2
+${subversion_prog} ${subversion_prefix} file {current|next} <fext>?
+
+EOF
+                        exit 0
+                        ;;
+                    *)
+                        cat<<EOF>&2
+${subversion_prog} error: unrecognized operator '${1}' in "${subversion_prog} ${subversion_prefix} file $*".
+EOF
+                        exit 1
+                        ;;
+                esac
+                ;;
+            list)
+                shift
+                if subversion_list $*
+                then
+                    exit 0
+                else
+                    exit 1
+                fi
+                ;;                
+            *)
+                cat<<EOF>&2
+${subversion_prog} error: unrecognized operator argument '${1}'.
+EOF
+                exit 1
+                ;;
+        esac
+    else
+        usage
+    fi
+else
+    cat<<EOF>&2
+${subversion_prog} error: missing series argument or configuration.
+EOF
+    exit 1
+fi
