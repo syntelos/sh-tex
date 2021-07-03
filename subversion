@@ -270,7 +270,28 @@ function subversion_create {
         series_template=${subversion_dir}/${subversion_circa}/template.${fext}
         if [ -f ${series_template} ]
         then
-            cp ${series_template} ${subversion_dir}/${subversion_circa}/${file}
+            case "${fext}" in
+                tex|txt)
+                    cp ${series_template} ${subversion_dir}/${subversion_circa}/${file}
+                    ;;
+                tgz)
+                    if cd ${dir}
+                    then
+                        if tar xvfpz ${series_template}
+                        then
+                            return 0
+                        else
+                            return 1
+                        fi
+                    else
+                        return 1
+                    fi
+                    ;;
+                *)
+                    echo "${subversion_prog} error unrecognized type '${fext}'.">&2
+                    return 1
+                    ;;
+                esac
 
         elif [ 'tex' = "${fext}" ]
         then
@@ -301,7 +322,6 @@ EOF
         return 1
     fi
 }
-
 #
 function subversion_current {
     dir=${subversion_dir}/${subversion_circa}
@@ -676,18 +696,12 @@ EOF
                 fi
                 ;;                
             *)
-                cat<<EOF>&2
-${subversion_prog} error: unrecognized operator argument '${1}'.
-EOF
-                exit 1
+                usage
                 ;;
         esac
     else
         usage
     fi
 else
-    cat<<EOF>&2
-${subversion_prog} error: missing series argument or configuration.
-EOF
-    exit 1
+    usage
 fi
