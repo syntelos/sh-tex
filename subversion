@@ -459,7 +459,7 @@ function subversion_compile_mp4 {
     then
         if target=${subversion_dir}/${subversion_circa}/${base}.mp4
         then
-            if ffmpeg -y -framerate ${framerate} -pattern_type glob -i '*.png' ${target}
+            if encode ${target}
             then
                 return 0
             else

@@ -600,32 +600,20 @@ function series_batch_encode {
 
         if cd /tmp/encode
         then
-            #
-            # ffmpeg requires (glob) [source prefix]
-            #
-            if found=$(egrep -e '^camera-' ${series_dir}/${series_circa}/index.txt) &&
-                    [ -n "${found}" ]
-            then
-                #
-                for src in $(cat ${series_dir}/${series_circa}/index.txt)
-                do
-                    if cp -p ${src} .
-                    then
-                        continue
-                    else
-                        return 1
-                    fi
-                done
-            else
-                #
-                for base in $(cat ${series_dir}/${series_circa}/index.txt) 
-                do
-                    cp -p ${series_dir}/${series_circa}/${base} camera-${base}
-                done
-            fi
+            index=0
+            for src in $(cat ${series_dir}/${series_circa}/index.txt)
+            do
+                tgt=$(printf "%03.png")
 
+                if cp -p ${src} ${tgt}
+                then
+                    index=$(( ${index} + 1 ))
+                else
+                    return 1
+                fi
+            done
 
-            if ffmpeg -y -framerate 1 -pattern_type glob -i "camera-*.png" ${series_dir}/${series_circa}/${summary_animation}
+            if encode ${series_dir}/${series_circa}/${summary_animation}
             then
                 return 0;
             else

@@ -24,10 +24,6 @@ Description
   qualified file names.  Target files are referenced by decimal
   number, not "conventional file name".
 
-  Encoder
-
-    ffmpeg -y -pattern_type glob -i "*.png"  output.mp4
-
 EOF
     exit 1
 }

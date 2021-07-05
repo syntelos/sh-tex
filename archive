@@ -78,12 +78,12 @@ EOF
     exit 1
 }
 #
-function animation {
+function archive_animation {
 
     echo ${animation}
 }
 #
-function copy {
+function archive_copy {
 
     if list store > ${index}
     then
@@ -95,7 +95,7 @@ function copy {
     fi
 }
 #
-function count {
+function archive_count {
 
     case "${1}" in
         cam|camera)
@@ -146,7 +146,7 @@ function count {
     return 1;
 }
 #
-function copyto {
+function archive_copyto {
 
     case "${1}" in
         lab|labels)
@@ -166,7 +166,7 @@ function copyto {
 
 }
 #
-function dist {
+function archive_dist {
 
     case "${1}" in
         fi|fil|file|tgt|target)
@@ -208,7 +208,7 @@ function dist {
     esac
 }
 #
-function edit {
+function archive_edit {
 
     case "${1}" in
         lab|labels)
@@ -237,7 +237,7 @@ function edit {
     return 1;
 }
 #
-function encode {
+function archive_encode {
 
     if [ -f ${index} ]
     then
@@ -248,9 +248,16 @@ function encode {
             mkdir /tmp/encode
         fi
 
-        if cd /tmp/encode && cp -p $(cat ${dir}/${index} | sed "s%^%${dir}/%") .
+        if cd /tmp/encode
         then
-            if ffmpeg -y -framerate 1 -pattern_type glob -i "${camera}-*.png" ${dir}/${animation}
+            index=0
+            for src in $(cat ${dir}/${index} | sed "s%^%${dir}/%")
+            do
+
+                index=$(( ${index} + 1 ))
+            done
+            
+            if encode ${dir}/${animation}
             then
                 return 0;
             else
@@ -261,7 +268,7 @@ function encode {
     return 1;
 }
 #
-function head {
+function archive_head {
 
     case "${1}" in
         cam|camera)
@@ -296,12 +303,12 @@ function head {
     esac
 }
 #
-function home {
+function archive_home {
 
     case "${1}" in
         head)
             shift
-            if head $* | sed "s%^%${dir}/%"
+            if archive_head $* | sed "s%^%${dir}/%"
             then
                 exit 0
             else
@@ -310,7 +317,7 @@ function home {
             ;;
         idx|index)
             shift
-            if index $* | sed "s%^%${dir}/%"
+            if archive_index $* | sed "s%^%${dir}/%"
             then
                 exit 0
             else
@@ -319,7 +326,7 @@ function home {
             ;;
         lab|labels)
             shift
-            if labels $* | sed "s%^%${dir}/%"
+            if archive_labels $* | sed "s%^%${dir}/%"
             then
                 exit 0
             else
@@ -328,7 +335,7 @@ function home {
             ;;
         list)
             shift
-            if list $* | sed "s%^%${dir}/%"
+            if archive_list $* | sed "s%^%${dir}/%"
             then
                 exit 0
             else
@@ -337,7 +344,7 @@ function home {
             ;;
         tod|today|sto|store)
             shift
-            if today $* | sed "s%^%${dir}/%"
+            if archive_today $* | sed "s%^%${dir}/%"
             then
                 exit 0
             else
@@ -346,7 +353,7 @@ function home {
             ;;
         tail)
             shift
-            if tail $* | sed "s%^%${dir}/%"
+            if archive_tail $* | sed "s%^%${dir}/%"
             then
                 exit 0
             else
@@ -357,18 +364,18 @@ function home {
     esac
 }
 #
-function labels {
+function archive_labels {
 
     echo ${labels}
 }
 #
 #
-function index {
+function archive_index {
 
     echo ${index}
 }
 #
-function list {
+function archive_list {
 
     case "${1}" in
         cam|camera)
@@ -408,7 +415,7 @@ function list {
 
 }
 #
-function play {
+function archive_play {
 
     if [ -f ${animation} ] && ffplay ${animation}
     then
@@ -419,7 +426,7 @@ function play {
 }
 #
 #
-function store {
+function archive_store {
     declare many=0
     #
     # obscuring the source file name to conserve unit item integrity
@@ -484,7 +491,7 @@ function store {
     fi
 }
 #
-function tail {
+function archive_tail {
 
     case "${1}" in
         cam|camera)
@@ -520,7 +527,7 @@ function tail {
 
 }
 #
-function today {
+function archive_today {
 
     echo ${circa}
 }
@@ -533,7 +540,7 @@ then
         case "${1}" in
             ani|anim|animation)
                 shift
-                if animation $*
+                if archive_animation $*
                 then
                     exit 0
                 else
@@ -542,7 +549,7 @@ then
                 ;;
             copy)
                 shift
-                if copy $*
+                if archive_copy $*
                 then
                     exit 0
                 else
@@ -551,7 +558,7 @@ then
                 ;;
             count)
                 shift
-                if count $*
+                if archive_count $*
                 then
                     exit 0
                 else
@@ -560,7 +567,7 @@ then
                 ;;
             dist)
                 shift
-                if dist $*
+                if archive_dist $*
                 then
                     exit 0
                 else
@@ -569,7 +576,7 @@ then
                 ;;
             echo)
                 shift
-                if copyto $*
+                if archive_copyto $*
                 then
                     exit 0
                 else
@@ -578,7 +585,7 @@ then
                 ;;
             edit)
                 shift
-                if edit $*
+                if archive_edit $*
                 then
                     exit 0
                 else
@@ -587,7 +594,7 @@ then
                 ;;
             enc|encode)
                 shift
-                if encode $*
+                if archive_encode $*
                 then
                     exit 0
                 else
@@ -596,7 +603,7 @@ then
                 ;;
             head)
                 shift
-                if head $*
+                if archive_head $*
                 then
                     exit 0
                 else
@@ -605,7 +612,7 @@ then
                 ;;
             home)
                 shift
-                if home $*
+                if archive_home $*
                 then
                     exit 0
                 else
@@ -614,7 +621,7 @@ then
                 ;;
             idx|index)
                 shift
-                if index $*
+                if archive_index $*
                 then
                     exit 0
                 else
@@ -632,7 +639,7 @@ then
                 ;;
             lab|labels)
                 shift
-                if labels $*
+                if archive_labels $*
                 then
                     exit 0
                 else
@@ -641,7 +648,7 @@ then
                 ;;
             list)
                 shift
-                if list $*
+                if archive_list $*
                 then
                     exit 0
                 else
@@ -650,7 +657,7 @@ then
                 ;;
             play)
                 shift
-                if play $*
+                if archive_play $*
                 then
                     exit 0
                 else
@@ -659,7 +666,7 @@ then
                 ;;
             tod|today|sto|store)
                 shift
-                if today $*
+                if archive_today $*
                 then
                     exit 0
                 else
@@ -668,7 +675,7 @@ then
                 ;;
             tail)
                 shift
-                if tail $*
+                if archive_tail $*
                 then
                     exit 0
                 else
@@ -680,7 +687,7 @@ then
                 ;;
         esac
     else
-        if store
+        if archive_store
         then
             exit 0
         else

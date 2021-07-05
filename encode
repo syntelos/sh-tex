@@ -1,5 +1,17 @@
 #!/bin/bash
 
-target=$(basename $(pwd)).mp4
+declare target
 
-ffmpeg -y -framerate 0.3 -pattern_type glob -i '*.png' ${target}
+if [ -n "${1}" ]
+then
+    if [ -d "${1}" ]
+    then
+        target=${1}/$(basename $(pwd)).mp4
+    else
+        target=${1}
+    fi        
+else
+    target=$(basename $(pwd)).mp4
+fi
+
+ffmpeg -y -framerate 0.3 -pattern_type glob -i '*.png' -vcodec libx264 -pix_fmt yuv420p -an -profile:v baseline -level 3.0 ${target}
