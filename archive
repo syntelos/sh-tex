@@ -431,7 +431,7 @@ function archive_store {
     #
     # obscuring the source file name to conserve unit item integrity
     #
-    for store_src in $(list camera)
+    for store_src in $(archive_list camera)
     do
         if store_tgtf=$(echo ${store_src} | tr '[A-Z]' '[a-z]' | sed 's/%from%/%/; s/-//g; s/%/-/g;') &&[ -n "${store_tgtf}" ]
         then
