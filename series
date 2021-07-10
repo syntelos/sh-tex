@@ -221,15 +221,20 @@ function series_file_next {
 }
 
 function series_process_create {
-    if file=$(series_file_next) && [ -n "${file}" ]
+    if file=$(series_file_next "${1}") && [ -n "${file}" ]
     then
         if [ ! -d ${series_dir}/${series_circa} ]
         then
             mkdir -p ${series_dir}/${series_circa}
         fi
 
-        series_template=${series_dir}/${series_circa}/template.tex
-        
+        if [ -n "${1}" ]
+        then
+            series_template=${series_dir}/${series_circa}/template.${1}
+        else
+            series_template=${series_dir}/${series_circa}/template.tex
+        fi
+
         if [ -n "${TEX_SERIES_TEMPLATE}" ]
         then
             cp "${TEX_SERIES_TEMPLATE}" ${series_dir}/${series_circa}/${file}
@@ -238,11 +243,7 @@ function series_process_create {
         then
             cp ${series_template} ${series_dir}/${series_circa}/${file}
         else
-            cat<<EOF>${series_dir}/${series_circa}/${file}
-\input preamble
-
-\bye
-EOF
+            touch ${series_dir}/${series_circa}/${file}
         fi
 
         git add ${series_dir}/${series_circa}/${file}
